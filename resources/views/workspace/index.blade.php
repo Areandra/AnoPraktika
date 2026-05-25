@@ -99,8 +99,6 @@
                 const panel = document.getElementById('annotation-panel');
                 const submissionList = document.getElementById('submission-list');
                 if (panel) panel.classList.remove('hidden');
-                if (submissionList) submissionList.classList.remove('h-full');
-                if (submissionList) submissionList.classList.add('max-h-[55vh]');
                 const form = document.getElementById('form-review-asprak');
                 if (form) form.action = `/submissions/${currentSubmissionId}/review`;
             }
@@ -326,68 +324,246 @@
                 tooltip.style.transform = 'none'; // reset transform
             }
 
-            function loadTaskViewer(filePath, fileName) {
+            const CODE_EXTENSIONS = [
+                'js', 'ts', 'jsx', 'tsx',
+                'php', 'py', 'java', 'cpp',
+                'c', 'cs', 'go', 'rs',
+                'rb', 'kt', 'swift',
+                'html', 'css', 'scss',
+                'json', 'xml', 'md',
+                'txt', 'sql', 'sh'
+            ];
+
+            const ARCHIVE_EXTENSIONS = ['zip', 'rar', '7z'];
+
+            async function loadTaskViewer(filePath, fileName) {
 
                 const container = document.getElementById('task-viewer-container');
 
-                fetch(`/storage/${filePath}`)
-                    .then(response => response.text())
-                    .then(content => {
+                const extension = getExtension(fileName);
 
-                        const extension = fileName.split('.').pop().toLowerCase();
+                renderLoading(container);
 
-                        const zipExtensions = ['zip', 'rar', '7z'];
+                try {
 
-                        if (zipExtensions.includes(extension)) {
+                    // ARCHIVE
+                    if (ARCHIVE_EXTENSIONS.includes(extension)) {
+                        renderArchive(container, filePath, fileName);
+                        return;
+                    }
 
-                            container.innerHTML = `
-                    <div class="p-8 text-center text-white space-y-4">
-                        <h2 class="text-xl font-bold">File Arsip</h2>
+                    // CODE / TEXT
+                    if (CODE_EXTENSIONS.includes(extension)) {
 
-                        <p class="text-gray-400">
-                            File ZIP tidak bisa dipreview langsung.
-                        </p>
+                        const response = await fetch(`/storage/${filePath}`);
 
-                        <a
-                            href="/storage/${filePath}"
-                            download
-                            class="inline-block px-4 py-2 bg-blue-600 rounded-xl"
-                        >
-                            Download ZIP
-                        </a>
-                    </div>
-                `;
-
-                            return;
+                        if (!response.ok) {
+                            throw new Error('Failed to load file');
                         }
 
-                        container.innerHTML = `
-                <div class="h-full flex flex-col p-4">
+                        const content = await response.text();
 
-                    <div class="flex justify-between items-center mb-4">
-                        <div>
-                            <h2 class="text-white font-bold">${fileName}</h2>
-                            <p class="text-gray-500 text-xs uppercase">${extension}</p>
+                        renderCode(
+                            container,
+                            filePath,
+                            fileName,
+                            extension,
+                            content
+                        );
+
+                        return;
+                    }
+
+                    // UNKNOWN
+                    renderUnsupported(container, filePath);
+
+                } catch (error) {
+
+                    console.error(error);
+
+                    renderError(container);
+                }
+            }
+
+            function getExtension(fileName) {
+                return fileName.split('.').pop().toLowerCase();
+            }
+
+            function renderLoading(container) {
+
+                container.innerHTML = `
+            <div class="h-full overflow-auto flex items-center justify-center">
+                <div class="text-center space-y-3">
+
+                    <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+
+                    <p class="text-gray-400 text-sm">
+                        Loading file...
+                    </p>
+
+                </div>
+            </div>
+        `;
+            }
+
+            function renderCode(
+                container,
+                filePath,
+                fileName,
+                extension,
+                content
+            ) {
+
+                container.innerHTML = `
+            <div class="h-full flex flex-col overflow-auto">
+
+                <!-- HEADER -->
+                <div class="shrink-0 px-5 py-4 border-b border-gray-800 bg-[#111827]">
+
+                    <div class="flex items-center justify-between">
+
+                        <div class="min-w-0">
+
+                            <h2 class="text-white font-semibold truncate">
+                                ${escapeHtml(fileName)}
+                            </h2>
+
+                            <p class="text-xs text-gray-500 uppercase mt-1">
+                                ${extension} file
+                            </p>
+
                         </div>
 
                         <a
                             href="/storage/${filePath}"
                             download
-                            class="px-3 py-2 bg-blue-600 rounded-lg text-white"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 transition rounded-xl text-sm font-medium text-white shrink-0"
                         >
                             Download
                         </a>
+
                     </div>
 
-                    <pre class="flex-1 overflow-auto bg-[#020617] border border-gray-800 rounded-2xl p-4 text-sm text-gray-200"><code>${escapeHtml(content)}</code></pre>
                 </div>
-            `;
-                    });
+
+                <!-- CONTENT -->
+                <div class="flex-1 overflow-auto">
+
+                    <pre class="min-h-full p-5 text-sm leading-7 text-gray-200 font-mono whitespace-pre-wrap break-words">
+<code>${escapeHtml(content)}</code>
+                    </pre>
+
+                </div>
+
+            </div>
+        `;
+            }
+
+            function renderArchive(container, filePath, fileName) {
+
+                container.innerHTML = `
+            <div class="h-full flex items-center justify-center p-6">
+
+                <div class="w-full max-w-md bg-[#111827] border border-gray-800 rounded-3xl p-8 text-center">
+
+                    <div class="mb-5">
+
+                        <div class="w-16 h-16 rounded-2xl bg-yellow-500/10 text-yellow-400 flex items-center justify-center mx-auto text-3xl">
+                            📦
+                        </div>
+
+                    </div>
+
+                    <h2 class="text-xl font-bold text-white mb-2">
+                        File Arsip
+                    </h2>
+
+                    <p class="text-gray-400 text-sm mb-6">
+                        File arsip tidak dapat dipreview langsung.
+                    </p>
+
+                    <div class="bg-[#0b1120] border border-gray-700 rounded-xl p-3 text-sm text-gray-300 font-mono truncate mb-6">
+                        ${escapeHtml(fileName)}
+                    </div>
+
+                    <a
+                        href="/storage/${filePath}"
+                        download
+                        class="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 transition rounded-xl text-white font-medium"
+                    >
+                        Download File
+                    </a>
+
+                </div>
+
+            </div>
+        `;
+            }
+
+            function renderUnsupported(container, filePath) {
+
+                container.innerHTML = `
+            <div class="h-full flex items-center justify-center p-6">
+
+                <div class="max-w-md w-full bg-[#111827] border border-gray-800 rounded-3xl p-8 text-center">
+
+                    <div class="text-5xl mb-5">
+                        📄
+                    </div>
+
+                    <h2 class="text-xl font-bold text-white mb-2">
+                        Preview Tidak Didukung
+                    </h2>
+
+                    <p class="text-gray-400 text-sm mb-6">
+                        File ini tidak dapat dipreview langsung.
+                    </p>
+
+                    <a
+                        href="/storage/${filePath}"
+                        download
+                        class="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl text-white font-medium"
+                    >
+                        Download File
+                    </a>
+
+                </div>
+
+            </div>
+        `;
+            }
+
+            function renderError(container) {
+
+                container.innerHTML = `
+            <div class="h-full flex items-center justify-center">
+
+                <div class="text-center">
+
+                    <div class="text-5xl mb-4">
+                        ⚠️
+                    </div>
+
+                    <h2 class="text-white text-lg font-semibold mb-2">
+                        Gagal Memuat File
+                    </h2>
+
+                    <p class="text-gray-400 text-sm">
+                        Terjadi kesalahan saat membaca file.
+                    </p>
+
+                </div>
+
+            </div>
+        `;
             }
 
             function escapeHtml(text) {
+
                 const div = document.createElement('div');
+
                 div.innerText = text;
+
                 return div.innerHTML;
             }
         </script>

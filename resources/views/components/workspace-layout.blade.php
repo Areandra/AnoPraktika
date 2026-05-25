@@ -8,13 +8,18 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Prism.js CSS & JS untuk Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <!-- Tambahkan component lain sesuai kebutuhan (php, python, dll) -->
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
     @stack('styles')
 </head>
 
-<body class="bg-[#0b0f19] text-gray-200 min-h-screen flex overflow-hidden font-sans text-xs">
+<body class="bg-[#0b0f19] text-gray-200 h-screen flex overflow-hidden font-sans text-xs">
     {{-- BLOK RESPONS STATUS SERVER (Gaya Dark Mode) --}}
     <div class="absolute top-4 left-4 right-4 z-50 pointer-events-none flex flex-col gap-2 max-w-md ml-auto">
         @if (session('success'))

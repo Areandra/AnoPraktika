@@ -49,11 +49,10 @@
 
     <div class="flex-1 flex overflow-hidden bg-[#0a0f1d]">
         {{-- Panel Kiri: Daftar Pengumpulan --}}
-        <div
-            class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
-            <div>
+        <div class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between p-4 space-y-4">
+            <div class="overflow-y-auto scrollbar-none">
                 <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Daftar Pengumpulan</h3>
-                <div id="submission-list" class="space-y-2 h-full overflow-y-auto scrollbar-none pr-1">
+                <div id="submission-list" class="space-y-2 pr-1">
                     @if ($centerData['submissions'])
                         @foreach ($centerData['submissions'] as $sub)
                             <span class="text-[9px] font-mono text-blue-400 font-semibold">
@@ -176,8 +175,18 @@
 
         {{-- Panel Kanan: PDF --}}
         <div class="flex-1 flex flex-col bg-[#111625] overflow-hidden relative">
-            <x-pdf-toolbar />
-            <x-pdf-canvas :disable-click="false" />
+
+            @if ($activeAssignment->type === 'module')
+                <x-pdf-toolbar />
+                <x-pdf-canvas :disable-click="false" />
+            @else
+                <div id="task-viewer-container" class="flex-1 overflow-hidden bg-[#0b1120]">
+                    <div class="h-full flex items-center justify-center text-gray-500">
+                        Pilih file tugas untuk ditampilkan.
+                    </div>
+                </div>
+            @endif
+
         </div>
     </div>
 
@@ -202,8 +211,8 @@
     <div class="flex-1 flex overflow-hidden bg-[#0a0f1d]">
         {{-- Panel Kiri: Riwayat Versi --}}
         <div
-            class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
-            <div class="space-y-4 flex-1 overflow-y-auto pr-1">
+            class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between scrollbar-none overflow-y-auto p-4 space-y-4">
+            <div class="space-y-4 flex-1 overflow-y-auto scrollbar-none pr-1">
                 <div class="bg-[#1e293b]/40 p-3 rounded-xl border border-gray-800">
                     <h3 class="font-bold text-gray-300 uppercase tracking-wider text-[9px] mb-1">Instruksi Deskripsi
                     </h3>
@@ -300,16 +309,18 @@
 
         {{-- Panel Kanan: PDF --}}
         <div class="flex-1 flex flex-col bg-[#111625] overflow-hidden relative">
+
             @if ($activeAssignment->type === 'module')
                 <x-pdf-toolbar />
                 <x-pdf-canvas :disable-click="false" />
             @else
-                <div id="task-viewer-container" class="flex-1 overflow-auto">
+                <div id="task-viewer-container" class="flex-1 overflow-hidden bg-[#0b1120]">
                     <div class="h-full flex items-center justify-center text-gray-500">
                         Pilih file tugas untuk ditampilkan.
                     </div>
                 </div>
             @endif
+
         </div>
     </div>
 
