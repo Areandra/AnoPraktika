@@ -58,7 +58,7 @@ class DashboardController extends Controller
                 } elseif ($roleInActivePracticum === 'assistant') {
                     // Mode Assistant: Tampilkan semua submission masuk pada tugas tersebut
                     $viewMode = 'assistant_assignment_review';
-                    $centerData['submissions'] = Submission::with(['student', 'latestVersion'])
+                    $centerData['submissions'] = Submission::with(['student', 'versions'])
                         ->where('assignment_id', $activeAssignment->id)
                         ->get();
                 } else {

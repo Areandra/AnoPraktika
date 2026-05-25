@@ -50,48 +50,88 @@
     <div class="flex-1 flex overflow-hidden bg-[#0a0f1d]">
         {{-- Panel Kiri: Daftar Pengumpulan --}}
         <div
-            class="w-80 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
+            class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
             <div>
                 <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Daftar Pengumpulan</h3>
-                <div class="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-                    @forelse($centerData['submissions'] as $sub)
-                        @php
-                            $rawCoords = $sub->latestVersion->annotation_coordinates ?? '[]';
-                            $savedAnnotations = json_decode($rawCoords, true) ?? [];
-                            $savedNotes = $sub->latestVersion->assistant_notes ?? '';
-                            $base64Notes = base64_encode($savedNotes);
-                        @endphp
-                        <div
-                            class="bg-[#1e293b] p-3 rounded-xl border border-gray-800/80 flex flex-col gap-2 transition hover:border-gray-700">
-                            <div class="flex justify-between items-start">
-                                <div>
-                                    <span
-                                        class="text-[9px] font-mono text-blue-400 font-semibold">{{ $sub->student->identifier }}</span>
-                                    <h4 class="font-bold text-white truncate max-w-[120px]">{{ $sub->student->name }}
-                                    </h4>
+                <div id="submission-list" class="space-y-2 h-full overflow-y-auto scrollbar-none pr-1">
+                    @if ($centerData['submissions'])
+                        @foreach ($centerData['submissions'] as $sub)
+                            <span class="text-[9px] font-mono text-blue-400 font-semibold">
+                                {{ $sub->student->identifier }}
+                            </span>
+
+                            <h4 class="font-bold text-white truncate max-w-[120px]">
+                                {{ $sub->student->name }}
+                            </h4>
+                            @foreach ($sub->versions as $v)
+                                @php
+                                    $rawCoords = $v->annotation_coordinates ?? '[]';
+                                    $savedAnnotations = json_decode($rawCoords, true) ?? [];
+                                    $savedNotes = $v->assistant_notes ?? '';
+                                    $base64Notes = base64_encode($savedNotes);
+                                @endphp
+                                <div
+                                    class="bg-[#111827] p-3 rounded-xl border border-gray-800 flex flex-col gap-2 transition hover:border-gray-700">
+                                    <div class="flex flex-col justify-between items-center">
+                                        <div class="flex w-full justify-between items-center">
+                                            <div>
+                                                <span class="font-semibold text-white text-[11px]">Versi
+                                                    #{{ $v->version_number }}</span>
+                                                <p class="text-[9px] text-gray-500 font-mono">
+                                                    {{ $v->created_at->format('d M Y, H:i') }} WITA
+                                                </p>
+                                            </div>
+                                            <span
+                                                class="text-[9px] px-1.5 py-0.5 rounded font-bold
+                                            {{ $v->is_format_valid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400' }}">
+                                                {{ $v->is_format_valid ? 'Valid' : 'Struktur Salah' }}
+                                            </span>
+                                        </div>
+
+                                        {{-- Tampilkan detail log validasi jika ada dan format tidak valid --}}
+                                        @php
+                                            $validationLogs = json_decode($v->system_validation_logs, true);
+                                        @endphp
+                                        @if (!$v->is_format_valid && !empty($validationLogs))
+                                            <div
+                                                class="mt-2 text-[10px] text-red-400 bg-red-500/5 p-2 rounded-lg border border-red-500/20 space-y-1">
+                                                <p class="font-semibold text-red-300">Detail Kesalahan Format:
+                                                </p>
+                                                @foreach ($validationLogs as $key => $message)
+                                                    <div class="flex gap-1">
+                                                        <span>•</span>
+                                                        <span>{{ $message }}</span>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                    @if ($activeAssignment->type === 'module')
+                                        <button
+                                            onclick="loadPdfViewer(
+                                                '/storage/{{ $v->pdf_file_path }}',
+                                                {{ $v->id }},
+                                                {{ json_encode($savedAnnotations) }},
+                                                '{{ $base64Notes }}'
+                                            )"
+                                            class="w-full text-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
+                                            <i class="ri-file-search-line"></i> Lihat Hasil Review
+                                        </button>
+                                    @else
+                                        <button
+                                            onclick='loadTaskViewer(
+                                                "{{ $v->attachment }}",
+                                                "{{ basename($v->attachment) }}"
+                                            )'
+                                            class="w-full text-center bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
+                                            <i class="ri-code-box-line"></i>
+                                            Lihat Tugas
+                                        </button>
+                                    @endif
                                 </div>
-                                <span
-                                    class="px-1.5 py-0.5 rounded font-mono text-[8px] uppercase font-bold
-                                    {{ $sub->status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : ($sub->status === 'revision' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-blue-500/10 text-blue-400') }}">
-                                    {{ $sub->status }}
-                                </span>
-                            </div>
-                            @if ($activeAssignment->type === 'module')
-                                <button
-                                    onclick="loadPdfViewer(
-                                        '/storage/{{ $sub->latestVersion->pdf_file_path }}',
-                                        '{{ $sub->id }}',
-                                        {{ json_encode($savedAnnotations) }},
-                                        '{{ $base64Notes }}'
-                                    )"
-                                    class="w-full text-center bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
-                                    <i class="ri-file-pdf-fill"></i> Periksa Laporan
-                                </button>
-                            @endif
-                        </div>
-                    @empty
-                        <p class="text-gray-500 text-center py-6">Belum ada mahasiswa yang mengumpul.</p>
-                    @endforelse
+                            @endforeach
+                        @endforeach
+                    @endif
                 </div>
             </div>
 
@@ -162,7 +202,7 @@
     <div class="flex-1 flex overflow-hidden bg-[#0a0f1d]">
         {{-- Panel Kiri: Riwayat Versi --}}
         <div
-            class="w-80 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
+            class="w-64 border-r border-gray-800 bg-[#111827]/60 flex flex-col justify-between overflow-y-auto p-4 space-y-4">
             <div class="space-y-4 flex-1 overflow-y-auto pr-1">
                 <div class="bg-[#1e293b]/40 p-3 rounded-xl border border-gray-800">
                     <h3 class="font-bold text-gray-300 uppercase tracking-wider text-[9px] mb-1">Instruksi Deskripsi
@@ -186,19 +226,21 @@
                                 @endphp
                                 <div
                                     class="bg-[#111827] p-3 rounded-xl border border-gray-800 flex flex-col gap-2 transition hover:border-gray-700">
-                                    <div class="flex justify-between items-center">
-                                        <div>
-                                            <span class="font-semibold text-white text-[11px]">Versi
-                                                #{{ $v->version_number }}</span>
-                                            <p class="text-[9px] text-gray-500 font-mono">
-                                                {{ $v->created_at->format('d M Y, H:i') }} WITA
-                                            </p>
+                                    <div class="flex flex-col justify-between items-center">
+                                        <div class="flex w-full justify-between items-center">
+                                            <div>
+                                                <span class="font-semibold text-white text-[11px]">Versi
+                                                    #{{ $v->version_number }}</span>
+                                                <p class="text-[9px] text-gray-500 font-mono">
+                                                    {{ $v->created_at->format('d M Y, H:i') }} WITA
+                                                </p>
+                                            </div>
+                                            <span
+                                                class="text-[9px] px-1.5 py-0.5 rounded font-bold
+                                            {{ $v->is_format_valid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400' }}">
+                                                {{ $v->is_format_valid ? 'Valid' : 'Struktur Salah' }}
+                                            </span>
                                         </div>
-                                        <span
-                                            class="text-[9px] px-1.5 py-0.5 rounded font-bold
-    {{ $v->is_format_valid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400' }}">
-                                            {{ $v->is_format_valid ? 'Valid' : 'Struktur Salah' }}
-                                        </span>
 
                                         {{-- Tampilkan detail log validasi jika ada dan format tidak valid --}}
                                         @php
@@ -217,15 +259,27 @@
                                             </div>
                                         @endif
                                     </div>
-                                    <button
-                                        onclick="loadPdfViewerStudent(
+                                    @if ($activeAssignment->type === 'module')
+                                        <button
+                                            onclick="loadPdfViewerStudent(
                                             '/storage/{{ $v->pdf_file_path }}',
                                             {{ json_encode($savedAnnotations) }},
                                             '{{ $base64Notes }}'
                                         )"
-                                        class="w-full text-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
-                                        <i class="ri-file-search-line"></i> Lihat Hasil Review
-                                    </button>
+                                            class="w-full text-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
+                                            <i class="ri-file-search-line"></i> Lihat Hasil Review
+                                        </button>
+                                    @else
+                                        <button
+                                            onclick='loadTaskViewer(
+                                                "{{ $v->attachment }}",
+                                                "{{ basename($v->attachment) }}"
+                                            )'
+                                            class="w-full text-center bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
+                                            <i class="ri-code-box-line"></i>
+                                            Lihat Tugas
+                                        </button>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
@@ -246,8 +300,16 @@
 
         {{-- Panel Kanan: PDF --}}
         <div class="flex-1 flex flex-col bg-[#111625] overflow-hidden relative">
-            <x-pdf-toolbar />
-            <x-pdf-canvas :disable-click="true" />
+            @if ($activeAssignment->type === 'module')
+                <x-pdf-toolbar />
+                <x-pdf-canvas :disable-click="false" />
+            @else
+                <div id="task-viewer-container" class="flex-1 overflow-auto">
+                    <div class="h-full flex items-center justify-center text-gray-500">
+                        Pilih file tugas untuk ditampilkan.
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

@@ -11,17 +11,18 @@ class AssignmentController extends Controller
     {
         $validated = $request->validate([
             'practicum_id' => 'required|exists:practicums,id',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'required|in:module,task',
-            'deadline' => 'required|date',
+            'title'        => 'required|string|max:255',
+            'description'  => 'nullable|string',
+            'type'         => 'required|in:module,task',
+            'deadline'     => 'required|date',
         ]);
 
         $assignment = \App\Models\Assignment::create($validated);
 
+        // Menambahkan alert success saat redirect
         return redirect()->route('dashboard', [
-            'practicum_id' => $request->practicum_id,
+            'practicum_id'  => $request->practicum_id,
             'assignment_id' => $assignment->id
-        ]);
+        ])->with('success', 'Tugas/Modul baru berhasil ditambahkan ke dalam praktikum.');
     }
 }

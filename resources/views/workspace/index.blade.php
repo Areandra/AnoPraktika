@@ -33,7 +33,7 @@
             // ==================== GLOBAL STATE ====================
             let currentPdfDoc = null;
             let currentPdfPage = 1;
-            let currentPdfScale = 1.3;
+            let currentPdfScale = 1;
             let currentSubmissionId = null;
             let activeAnnotations = []; // { id, page, x, y, comment }
             let annotationCounter = 0;
@@ -97,7 +97,10 @@
                 document.getElementById('pdf-toolbar').classList.remove('hidden');
                 document.getElementById('pdf-render-wrapper').classList.remove('hidden');
                 const panel = document.getElementById('annotation-panel');
+                const submissionList = document.getElementById('submission-list');
                 if (panel) panel.classList.remove('hidden');
+                if (submissionList) submissionList.classList.remove('h-full');
+                if (submissionList) submissionList.classList.add('max-h-[55vh]');
                 const form = document.getElementById('form-review-asprak');
                 if (form) form.action = `/submissions/${currentSubmissionId}/review`;
             }
@@ -139,7 +142,9 @@
 
             function zoomPdf(amount) {
                 currentPdfScale = Math.max(0.8, Math.min(2.5, currentPdfScale + amount));
-                renderPage(currentPdfPage);
+                document.getElementById('pdf-render-wrapper').style.transform = `scale(${currentPdfScale})`;
+
+                // renderPage(currentPdfPage);
             }
 
             // ==================== ANOTASI (HANYA ASISTEN) ====================
@@ -161,7 +166,8 @@
                 };
 
                 // Tampilkan modal
-                document.getElementById('comment-coord-info').innerText = `X:${x}, Y:${y} | Hal ${currentPdfPage}`;
+                document.getElementById('comment-coord-info').innerText =
+                    `X: ${x}, Y: ${y} | Hal ${currentPdfPage}`;
                 document.getElementById('comment-text').value = '';
                 document.getElementById('commentModal').classList.remove('hidden');
             }
@@ -174,7 +180,8 @@
             // Pasang event listener untuk tombol simpan komentar
             document.getElementById('save-comment-btn')?.addEventListener('click', function() {
                 if (!pendingAnnotation) return;
-                pendingAnnotation.comment = document.getElementById('comment-text').value.trim() || 'Tanpa komentar';
+                pendingAnnotation.comment = document.getElementById('comment-text').value.trim() ||
+                    'Tanpa komentar';
                 activeAnnotations.push(pendingAnnotation);
 
                 // Perbarui input hidden dan visual
@@ -229,18 +236,30 @@
             function renderCoordinatesLog() {
                 const container = document.getElementById('list-coordinates-log');
                 if (!container) return;
+
                 const pageAnns = activeAnnotations.filter(a => a.page === currentPdfPage);
+
                 if (pageAnns.length === 0) {
                     container.innerHTML =
                         '<span class="text-gray-600 italic text-[9px]">Belum ada poin komentar di halaman ini.</span>';
                     return;
                 }
+
                 container.innerHTML = pageAnns.map(a => `
-            <div class="flex justify-between items-center bg-[#1e293b] p-1 rounded px-2 border border-gray-800">
-                <span>#${a.id} (${a.x},${a.y}) ${String(a.comment).substring(0,20)}</span>
-                <button type="button" onclick="removeAnnotation(${a.id})" class="text-red-400 hover:text-red-300 font-bold px-1">Hapus</button>
-            </div>
-        `).join('');
+                    <div class="flex justify-between items-center bg-[#1e293b] p-1 rounded px-2 border border-gray-800">
+                        <span>
+                            #${a.id} (${a.x}, ${a.y})
+                            ${String(a.comment).substring(0, 20)}
+                        </span>
+
+                        <button
+                            type="button"
+                            onclick="removeAnnotation(${a.id})"
+                            class="text-red-400 hover:text-red-300 font-bold px-1">
+                            Hapus
+                        </button>
+                    </div>
+                `).join('');
             }
 
             // ==================== TOOLTIP (muncul tepat di samping marker) ====================
@@ -305,6 +324,71 @@
                 tooltip.style.left = left + 'px';
                 tooltip.style.top = top + 'px';
                 tooltip.style.transform = 'none'; // reset transform
+            }
+
+            function loadTaskViewer(filePath, fileName) {
+
+                const container = document.getElementById('task-viewer-container');
+
+                fetch(`/storage/${filePath}`)
+                    .then(response => response.text())
+                    .then(content => {
+
+                        const extension = fileName.split('.').pop().toLowerCase();
+
+                        const zipExtensions = ['zip', 'rar', '7z'];
+
+                        if (zipExtensions.includes(extension)) {
+
+                            container.innerHTML = `
+                    <div class="p-8 text-center text-white space-y-4">
+                        <h2 class="text-xl font-bold">File Arsip</h2>
+
+                        <p class="text-gray-400">
+                            File ZIP tidak bisa dipreview langsung.
+                        </p>
+
+                        <a
+                            href="/storage/${filePath}"
+                            download
+                            class="inline-block px-4 py-2 bg-blue-600 rounded-xl"
+                        >
+                            Download ZIP
+                        </a>
+                    </div>
+                `;
+
+                            return;
+                        }
+
+                        container.innerHTML = `
+                <div class="h-full flex flex-col p-4">
+
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h2 class="text-white font-bold">${fileName}</h2>
+                            <p class="text-gray-500 text-xs uppercase">${extension}</p>
+                        </div>
+
+                        <a
+                            href="/storage/${filePath}"
+                            download
+                            class="px-3 py-2 bg-blue-600 rounded-lg text-white"
+                        >
+                            Download
+                        </a>
+                    </div>
+
+                    <pre class="flex-1 overflow-auto bg-[#020617] border border-gray-800 rounded-2xl p-4 text-sm text-gray-200"><code>${escapeHtml(content)}</code></pre>
+                </div>
+            `;
+                    });
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.innerText = text;
+                return div.innerHTML;
             }
         </script>
     @endpush
