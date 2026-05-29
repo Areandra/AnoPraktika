@@ -22,55 +22,83 @@
             <div>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <i data-lucide="user" class="h-5 w-5 text-gray-500"></i>
+                        <i class="ri-user-line text-lg text-gray-500"></i>
                     </div>
                     <input type="text" name="name" value="{{ old('name') }}" placeholder="Full Name" required
                         class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-4 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                 </div>
+                @error('name')<p class="mt-2 text-xs text-red-400 font-mono">{{ $message }}</p>@enderror
             </div>
 
             {{-- IDENTIFIER (NIM / NIDN) --}}
             <div>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <i data-lucide="hash" class="h-5 w-5 text-gray-500"></i>
+                        <i class="ri-hashtag text-lg text-gray-500"></i>
                     </div>
                     <input type="text" name="identifier" value="{{ old('identifier') }}" placeholder="NIM / NIDN" required
                         class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-4 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                 </div>
+                @error('identifier')<p class="mt-2 text-xs text-red-400 font-mono">{{ $message }}</p>@enderror
             </div>
 
             {{-- EMAIL --}}
             <div>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <i data-lucide="mail" class="h-5 w-5 text-gray-500"></i>
+                        <i class="ri-mail-line text-lg text-gray-500"></i>
                     </div>
                     <input type="email" name="email" value="{{ old('email') }}" placeholder="Email Address" required
                         class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-4 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                 </div>
+                @error('email')<p class="mt-2 text-xs text-red-400 font-mono">{{ $message }}</p>@enderror
             </div>
 
-            {{-- PASSWORD --}}
-            <div>
+            {{-- PASSWORD UTAMA --}}
+            <div x-data="{ showPassword: false }">
                 <div class="relative">
+                    {{-- Ikon Gembok Kiri --}}
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <i data-lucide="lock" class="h-5 w-5 text-gray-500"></i>
+                        <i class="ri-lock-line text-lg text-gray-500"></i>
                     </div>
-                    <input type="password" name="password" placeholder="Password" required
-                        class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-4 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    
+                    {{-- Input Field --}}
+                    <input :type="showPassword ? 'text' : 'password'" name="password" placeholder="Password" required
+                        class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-12 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 @error('password') border-red-500/50 @enderror">
+                    
+                    {{-- Tombol Mata Kanan --}}
+                    <button type="button" @click="showPassword = !showPassword" 
+                        class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-white transition-colors">
+                        <i x-show="showPassword" class="ri-eye-line text-lg"></i>
+                        <i x-show="!showPassword" class="ri-eye-off-line text-lg" x-cloak></i>
+                    </button>
+                </div>
+                @error('password')<p class="mt-2 text-xs text-red-400 font-mono">{{ $message }}</p>@enderror
+            </div>
+
+            {{-- PASSWORD CONFIRMATION FIELD --}}
+            <div x-data="{ showConfirm: false }">
+                <div class="relative">
+                   {{-- Ikon Gembok Kiri --}}
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                        <i class="ri-lock-line text-lg text-gray-500"></i>
+                    </div>
+                    
+                    {{-- Input Field --}}
+                    <input :type="showConfirm ? 'text' : 'password'" name="password_confirmation" placeholder="Confirm Password" required
+                        class="block w-full rounded-xl bg-gray-900 border border-gray-800 py-3.5 pl-12 pr-12 text-sm font-medium text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    
+                    {{-- Tombol Mata Kanan --}}
+                    <button type="button" @click="showConfirm = !showConfirm" 
+                        class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-white transition-colors">
+                        <i x-show="showConfirm" class="ri-eye-line text-lg"></i>
+                        <i x-show="!showConfirm" class="ri-eye-off-line text-lg" x-cloak></i>
+                    </button>
                 </div>
             </div>
-
             <button type="submit" class="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white shadow-md shadow-blue-500/10 transition hover:bg-blue-700 active:scale-[0.98]">
                 Register Account
             </button>
         </form>
-
-        <div class="mt-6 text-center text-[10px] text-gray-600 flex justify-center gap-2 font-mono">
-            <span class="inline-flex items-center gap-1"><i data-lucide="pen-tool" class="w-3 h-3"></i> biji kuda</span>
-            <span>•</span>
-            <span class="inline-flex items-center gap-1"><i data-lucide="message-square" class="w-3 h-3"></i> Tulis Komentar</span>
-        </div>
     </div>
 </x-auth-layout>
