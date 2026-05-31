@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -34,10 +33,10 @@ class User extends Authenticatable
     public function practicums(): BelongsToMany
     {
         return $this->belongsToMany(
-            Practicum::class,       // 1. Model Target
-            'practicum_users',      // 2. Nama Tabel Pivot asli di DB
-            'user_id',              // 3. Foreign key model ini di tabel pivot
-            'practicum_id'          // 4. Foreign key model target di tabel pivot
+            Practicum::class,       
+            'practicum_users',      
+            'user_id',              
+            'practicum_id'          
         )->withPivot('role')->withTimestamps();
     }
 

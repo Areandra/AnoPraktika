@@ -91,19 +91,7 @@
                                         @php
                                             $validationLogs = json_decode($v->system_validation_logs, true);
                                         @endphp
-                                        @if (!$v->is_format_valid && !empty($validationLogs))
-                                            <div
-                                                class="mt-2 text-[10px] text-red-400 bg-red-500/5 p-2 rounded-lg border border-red-500/20 space-y-1">
-                                                <p class="font-semibold text-red-300">Detail Kesalahan Format:
-                                                </p>
-                                                @foreach ($validationLogs as $key => $message)
-                                                    <div class="flex gap-1">
-                                                        <span>•</span>
-                                                        <span>{{ $message }}</span>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endif
+
                                     </div>
                                     @if ($activeAssignment->type === 'module')
                                         <button
@@ -111,7 +99,8 @@
                                                 '/storage/{{ $v->pdf_file_path }}',
                                                 {{ $v->id }},
                                                 {{ json_encode($savedAnnotations) }},
-                                                '{{ $base64Notes }}'
+                                                '{{ $base64Notes }}',
+                                                {{ json_encode($validationLogs) }}
                                             )"
                                             class="w-full text-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
                                             <i class="ri-file-search-line"></i> Lihat Hasil Review
@@ -255,26 +244,15 @@
                                         @php
                                             $validationLogs = json_decode($v->system_validation_logs, true);
                                         @endphp
-                                        @if (!$v->is_format_valid && !empty($validationLogs))
-                                            <div
-                                                class="mt-2 text-[10px] text-red-400 bg-red-500/5 p-2 rounded-lg border border-red-500/20 space-y-1">
-                                                <p class="font-semibold text-red-300">Detail Kesalahan Format:</p>
-                                                @foreach ($validationLogs as $key => $message)
-                                                    <div class="flex gap-1">
-                                                        <span>•</span>
-                                                        <span>{{ $message }}</span>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endif
                                     </div>
                                     @if ($activeAssignment->type === 'module')
                                         <button
                                             onclick="loadPdfViewerStudent(
                                             '/storage/{{ $v->pdf_file_path }}',
                                             {{ json_encode($savedAnnotations) }},
-                                            '{{ $base64Notes }}'
-                                        )"
+                                            '{{ $base64Notes }}',
+                                            {{ json_encode($validationLogs) }}
+                                            )"
                                             class="w-full text-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white py-1.5 rounded-lg transition text-[10px] font-semibold flex items-center justify-center gap-1">
                                             <i class="ri-file-search-line"></i> Lihat Hasil Review
                                         </button>

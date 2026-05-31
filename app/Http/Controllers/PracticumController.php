@@ -18,7 +18,7 @@ class PracticumController extends Controller
         $practicum = Practicum::create($validated);
         $practicum->users()->attach(Auth::id(), ['role' => 'assistant']);
 
-        // Menambahkan alert success
+
         return redirect()->route('dashboard', ['practicum_id' => $practicum->id])
             ->with('success', 'Kelas praktikum baru berhasil dibuat.');
     }
@@ -30,7 +30,7 @@ class PracticumController extends Controller
         $practicum = Practicum::findOrFail($request->practicum_id);
         $practicum->users()->attach(Auth::id(), ['role' => 'student']);
 
-        // Menambahkan alert success
+
         return redirect()->route('dashboard', ['practicum_id' => $practicum->id])
             ->with('success', 'Anda berhasil bergabung ke dalam praktikum ' . $practicum->name . '.');
     }

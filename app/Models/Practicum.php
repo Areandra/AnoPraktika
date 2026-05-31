@@ -18,7 +18,7 @@ class Practicum extends Model
         'required_font_size',
     ];
 
-    // Relasi ke User (Mahasiswa & Asprak di dalam kelas ini)
+    
     public function users()
     {
         return $this->belongsToMany(User::class, 'practicum_users')
@@ -26,7 +26,7 @@ class Practicum extends Model
             ->withTimestamps();
     }
 
-    // Relasi ke daftar Modul/Tugas
+    
     public function assignments()
     {
         return $this->hasMany(Assignment::class);

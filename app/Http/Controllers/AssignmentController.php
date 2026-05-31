@@ -19,7 +19,7 @@ class AssignmentController extends Controller
 
         $assignment = \App\Models\Assignment::create($validated);
 
-        // Menambahkan alert success saat redirect
+
         return redirect()->route('dashboard', [
             'practicum_id'  => $request->practicum_id,
             'assignment_id' => $assignment->id

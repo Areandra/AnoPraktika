@@ -9,23 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log; // Import Facade Log
+use Illuminate\Support\Facades\Log; 
 use PhpOffice\PhpWord\IOFactory;
+use Symfony\Component\Process\Process;
 
 class SubmissionController extends Controller
 {
-    /**
-     * Tampilkan halaman upload laporan untuk Mahasiswa
-     */
-    public function showUpload($assignmentId)
-    {
-        $assignment = Assignment::with('practicum')->findOrFail($assignmentId);
-        return view('student.upload', compact('assignment'));
-    }
-
-    /**
-     * Proses unggah file dan validasi format otomatis via PHPWord
-     */
     public function store(Request $request, $assignmentId)
     {
         Log::info("Submission attempt started.", [
@@ -41,7 +30,7 @@ class SubmissionController extends Controller
             $practicum = $assignment->practicum;
             $studentId = Auth::id();
 
-            // VALIDASI
+            
             if ($assignment->type === 'module') {
                 $request->validate([
                     'word_file' => ['required', 'file', 'mimes:docx,zip', 'max:20480'],
@@ -53,7 +42,7 @@ class SubmissionController extends Controller
                 ]);
             }
 
-            // DEADLINE CHECK
+            
             if (now()->greaterThan($assignment->deadline)) {
                 return back()->withErrors([
                     'deadline' => 'Batas waktu pengumpulan (deadline) telah terlewat.'
@@ -67,7 +56,7 @@ class SubmissionController extends Controller
                 $studentId
             ) {
 
-                // AMBIL / BUAT SUBMISSION
+                
                 $submission = Submission::firstOrCreate(
                     [
                         'assignment_id' => $assignment->id,
@@ -84,12 +73,12 @@ class SubmissionController extends Controller
                     'current_status' => $submission->status
                 ]);
 
-                // CEK APPROVED
+                
                 if ($submission->status === 'approved') {
                     throw new \Exception('Laporan telah di-ACC, tidak dapat mengunggah revisi.');
                 }
 
-                // HITUNG VERSI
+                
                 $latestVersion = $submission->versions()
                     ->orderBy('version_number', 'desc')
                     ->first();
@@ -107,7 +96,7 @@ class SubmissionController extends Controller
                 $isFormatValid = true;
                 $validationLogs = [];
 
-                // MODULE
+                
                 if ($assignment->type === 'module') {
 
                     $wordPath = $request->file('word_file')
@@ -123,14 +112,15 @@ class SubmissionController extends Controller
 
                     $validation = $this->validateWordFormat(
                         Storage::disk('public')->path($wordPath),
-                        $practicum
+                        $practicum,
+                        Storage::disk('public')->path($pdfPath)
                     );
 
                     $isFormatValid = $validation['is_valid'];
                     $validationLogs = $validation['logs'];
                 } else {
 
-                    // TASK
+                    
                     $attachmentPath = $request->file('attachment_file')
                         ->store($folderPath, 'public');
 
@@ -139,14 +129,14 @@ class SubmissionController extends Controller
                     ]);
                 }
 
-                // UPDATE STATUS REVISION
+                
                 if ($submission->status === 'revision') {
                     $submission->update([
                         'status' => 'pending'
                     ]);
                 }
 
-                // INSERT VERSION
+                
                 SubmissionVersion::create([
                     'submission_id'          => $submission->id,
                     'version_number'         => $versionNumber,
@@ -161,7 +151,7 @@ class SubmissionController extends Controller
                 Log::info("Submission version created successfully.");
             });
 
-            // SUCCESS REDIRECT
+            
             return redirect()->route('dashboard', [
                 'practicum_id'  => $assignment->practicum_id,
                 'assignment_id' => $assignment->id
@@ -191,12 +181,9 @@ class SubmissionController extends Controller
         }
     }
 
-    /**
-     * Memproses penilaian, status kelulusan, dan menyimpan JSON koordinat catatan dari Asprak
-     */
     public function review(Request $request, $id)
     {
-        // 1. Validasi input yang dikirim oleh Form Penilaian
+        
         Log::info('Before update', [
             'notes' => $request->assistant_notes,
             'coords' => $request->annotation_coordinates
@@ -205,48 +192,48 @@ class SubmissionController extends Controller
         $request->validate([
             'status'                 => ['required', 'in:approved,revision'],
             'assistant_notes'        => ['required', 'string'],
-            'annotation_coordinates' => ['nullable', 'string'], // Menerima JSON string dari frontend
+            'annotation_coordinates' => ['nullable', 'string'], 
         ]);
 
 
 
 
         try {
-            // Mulai database transaction agar perubahan status parent dan versi sinkron
+            
             return DB::transaction(function () use ($request, $id) {
 
-                // 2. Cari data induk Submission mahasiswa
+                
                 $reviewVersion = SubmissionVersion::findOrFail($id);
 
                 if (!$reviewVersion) {
                     return response()->json(['message' => 'Versi berkas pengumpulan tidak ditemukan.'], 404);
                 }
-                // Ambil data versi dokumen paling baru yang diupload mahasiswa
+                
                 $submission = $reviewVersion->submission;
 
 
-                // 3. Update status utama pada tabel submissions
+                
                 $submission->update([
                     'status'                => $request->status,
-                    'assigned_assistant_id' => Auth::id(), // Kunci id asprak yang memeriksa
+                    'assigned_assistant_id' => Auth::id(), 
                 ]);
 
-                // 4. Validasi JSON Koordinat Keamanan sebelum dimasukkan ke database
+                
                 $rawCoordinates = $request->input('annotation_coordinates');
-                // Cek jika kosong atau strings '[]', sediakan fallback array kosong
+                
                 $decoded = json_decode($rawCoordinates, true);
                 $jsonToSave = (json_last_error() === JSON_ERROR_NONE && is_array($decoded))
                     ? $rawCoordinates
                     : json_encode([]);
 
-                // 5. Suntikkan nilai review ke tabel submission_versions paling baru
+                
                 $reviewVersion->update([
                     'assistant_notes' => $request->assistant_notes,
-                    // Pastikan kolom ini sudah ada di migration kamu (misal bertipe json atau text)
+                    
                     'annotation_coordinates' => $jsonToSave
                 ]);
 
-                // Berikan respons balik ke halaman workspace dengan membawa alert sukses
+                
                 return redirect()->back()->with('success', 'Penilaian submission berhasil disimpan ke dalam sistem.');
             });
         } catch (\Exception $e) {
@@ -259,176 +246,44 @@ class SubmissionController extends Controller
         }
     }
 
-    /**
-     * Core Engine pembedah file Word (.docx) - Versi Deep Extraction
-     */
-    /**
-     * Core Engine pembedah file Word (.docx) - Versi Smart Extraction (Dominant Style)
-     */
-    private function validateWordFormat(string $filePath, $rules): array
+    private function validateWordFormat(string $filePath, $rules, string $pdfPath): array
     {
-        $isValid = true;
-        $logs = [];
+        $scriptPath = base_path('app/Scripts/validate-doc.py');
 
+        
+        $pythonVenvPath = base_path('venv/bin/python3');
+
+        
+        $process = new Process([$pythonVenvPath, $scriptPath, $filePath, $pdfPath]);
         try {
-            Log::info("PHPWord Smart Analysis Started.", ['path' => $filePath]);
+            $process->setTimeout(90);
+            $process->run();
 
-            if (!file_exists($filePath)) {
-                return ['is_valid' => false, 'logs' => ['error' => 'Berkas fisik laporan tidak ditemukan di server.']];
+            if (!$process->isSuccessful()) {
+                Log::error("DDEV Python Venv Execution Failed: " . $process->getErrorOutput());
+                return [
+                    'is_valid' => false,
+                    'logs' => ['error' => 'Gagal menjalankan mesin validasi dokumen di server.']
+                ];
             }
 
-            $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
-            $sections = $phpWord->getSections();
+            $result = json_decode($process->getOutput(), true);
 
-            if (empty($sections)) {
-                return ['is_valid' => false, 'logs' => ['error' => 'Dokumen kosong atau tidak terbaca.']];
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error("Python output json corrupt: " . $process->getOutput());
+                return [
+                    'is_valid' => false,
+                    'logs' => ['error' => 'Format laporan hasil analisis tidak valid.']
+                ];
             }
 
-            // Aturan Standar
-            $reqTop    = $rules->required_margin_top_cm ?? 4.0;
-            $reqBottom = $rules->required_margin_bottom_cm ?? 3.0;
-            $reqLeft   = $rules->required_margin_left_cm ?? 4.0;
-            $reqRight  = $rules->required_margin_right_cm ?? 3.0;
-            $reqFont   = $rules->required_font_name ?? 'Times New Roman';
-            $reqSize   = $rules->required_font_size ?? 12;
-            $reqSpace  = $rules->required_line_spacing ?? 1.5;
-
-            // 1. Cek Margin (Hanya cek section pertama sebagai cover/body utama)
-            $sectionStyle = $sections[0]->getStyle();
-            $marginTop    = round($sectionStyle->getMarginTop() / 567, 1);
-            $marginBottom = round($sectionStyle->getMarginBottom() / 567, 1);
-            $marginLeft   = round($sectionStyle->getMarginLeft() / 567, 1);
-            $marginRight  = round($sectionStyle->getMarginRight() / 567, 1);
-
-            // Beri toleransi 0.1 cm untuk pembulatan Twips ke CM
-            $marginTolerance = 0.1;
-
-            if (abs($marginTop - $reqTop) > $marginTolerance) {
-                $isValid = false;
-                $logs['margin_top'] = "Margin atas {$marginTop} cm, seharusnya {$reqTop} cm.";
-            }
-            if (abs($marginBottom - $reqBottom) > $marginTolerance) {
-                $isValid = false;
-                $logs['margin_bottom'] = "Margin bawah {$marginBottom} cm, seharusnya {$reqBottom} cm.";
-            }
-            if (abs($marginLeft - $reqLeft) > $marginTolerance) {
-                $isValid = false;
-                $logs['margin_left'] = "Margin kiri {$marginLeft} cm, seharusnya {$reqLeft} cm.";
-            }
-            if (abs($marginRight - $reqRight) > $marginTolerance) {
-                $isValid = false;
-                $logs['margin_right'] = "Margin kanan {$marginRight} cm, seharusnya {$reqRight} cm.";
-            }
-
-            // --- SMART EXTRACTION ENGINE ---
-            // Tally variables untuk mencari mayoritas style yang dipakai
-            $fontNamesTally = [];
-            $fontSizesTally = [];
-            $spacingTally = [];
-            $totalTextLength = 0;
-
-            // 2. Deep Scanning Elemen
-            foreach ($sections as $section) {
-                foreach ($section->getElements() as $element) {
-
-                    if (method_exists($element, 'getElements')) {
-                        $paragraphTextLen = 0;
-                        $currentSpacing = null;
-
-                        // Ambil line spacing paragraf saat ini
-                        if (method_exists($element, 'getParagraphStyle')) {
-                            $pStyle = $element->getParagraphStyle();
-                            if ($pStyle) {
-                                $spacing = $pStyle->getSpacingLineRule();
-                                $normalizedSpacing = 1.0;
-
-                                if (is_numeric($spacing)) {
-                                    if ($spacing == 360) $normalizedSpacing = 1.5;
-                                    elseif ($spacing == 480) $normalizedSpacing = 2.0;
-                                    elseif ($spacing == 240) $normalizedSpacing = 1.0;
-                                    else $normalizedSpacing = round($spacing / 240, 1);
-                                }
-                                $currentSpacing = $normalizedSpacing;
-                            }
-                        }
-
-                        // Ekstraksi Karakter
-                        foreach ($element->getElements() as $textElement) {
-                            if ($textElement instanceof \PhpOffice\PhpWord\Element\Text) {
-                                $text = trim($textElement->getText());
-                                $textLen = strlen($text);
-
-                                // SKIP baris kosong atau spasi doang
-                                if ($textLen === 0) continue;
-
-                                $paragraphTextLen += $textLen;
-                                $totalTextLength += $textLen;
-
-                                $fStyle = $textElement->getFontStyle();
-                                if ($fStyle) {
-                                    $fontName = $fStyle->getName() ?? 'Unknown';
-                                    $fontSize = $fStyle->getSize() ?? 0;
-
-                                    // Hitung kemunculan berdasarkan panjang karakter (pembobotan)
-                                    $fontNamesTally[$fontName] = ($fontNamesTally[$fontName] ?? 0) + $textLen;
-                                    $fontSizesTally[$fontSize] = ($fontSizesTally[$fontSize] ?? 0) + $textLen;
-                                }
-                            }
-                        }
-
-                        // Catat line spacing hanya jika paragraf tersebut memiliki teks valid
-                        if ($paragraphTextLen > 0 && $currentSpacing !== null) {
-                            $spacingTally[$currentSpacing] = ($spacingTally[$currentSpacing] ?? 0) + $paragraphTextLen;
-                        }
-                    }
-                }
-            }
-
-            // 3. Evaluasi Berdasarkan Dominansi (Mayoritas)
-            if ($totalTextLength > 0) {
-                // Urutkan dari yang paling banyak dipakai ke paling sedikit
-                arsort($fontNamesTally);
-                arsort($fontSizesTally);
-                arsort($spacingTally);
-
-                $dominantFontName = array_key_first($fontNamesTally);
-                $dominantFontSize = array_key_first($fontSizesTally);
-                $dominantSpacing  = array_key_first($spacingTally);
-
-                // Validasi font name mayoritas
-                if ($dominantFontName && $dominantFontName !== $reqFont) {
-                    $isValid = false;
-                    $logs['font_name'] = "Mayoritas teks menggunakan font '{$dominantFontName}', wajib menggunakan '{$reqFont}'.";
-                }
-
-                // Validasi font size mayoritas
-                if ($dominantFontSize && $dominantFontSize != $reqSize) {
-                    $isValid = false;
-                    $logs['font_size'] = "Mayoritas ukuran teks terdeteksi {$dominantFontSize}pt, standar wajib {$reqSize}pt.";
-                }
-
-                // Validasi line spacing mayoritas
-                if ($dominantSpacing && $dominantSpacing != $reqSpace) {
-                    $isValid = false;
-                    $logs['line_spacing'] = "Mayoritas spasi baris terdeteksi {$dominantSpacing}, standar praktikum wajib {$reqSpace}.";
-                }
-
-                Log::info("Document Style Dominance:", [
-                    'dominant_font' => $dominantFontName,
-                    'dominant_size' => $dominantFontSize,
-                    'dominant_spacing' => $dominantSpacing,
-                    'total_analyzed_chars' => $totalTextLength
-                ]);
-            } else {
-                $isValid = false;
-                $logs['content'] = "Dokumen tampaknya hanya berisi gambar/lampiran tanpa teks laporan yang bisa dibaca sistem.";
-            }
+            return $result;
         } catch (\Exception $e) {
-            Log::error("Error inside smart validateWordFormat engine.", ['msg' => $e->getMessage()]);
-            $isValid = false;
-            $logs['exception'] = "Gagal membedah format file: " . $e->getMessage();
+            Log::error("Error bridge Laravel-Python: " . $e->getMessage());
+            return [
+                'is_valid' => false,
+                'logs' => ['error' => 'Terjadi kendala pada sistem pembacaan file.']
+            ];
         }
-
-        return ['is_valid' => $isValid, 'logs' => $logs];
     }
 }

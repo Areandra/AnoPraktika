@@ -19,9 +19,9 @@ class SubmissionVersion extends Model
     ];
 
     protected $casts = [
-        'attachment'             => 'array', // Cast otomatis JSON ke Array PHP
-        'system_validation_logs' => 'array', // Cast otomatis JSON ke Array PHP
-        'annotation_coordinates' => 'array', // Cast otomatis JSON ke Array PHP
+        'attachment'             => 'array', 
+        'system_validation_logs' => 'array', 
+        'annotation_coordinates' => 'array', 
         'is_format_valid'        => 'boolean',
     ];
 

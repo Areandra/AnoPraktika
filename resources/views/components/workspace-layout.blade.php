@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ano Praktika - Workspace</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <!-- Prism.js CSS & JS untuk Syntax Highlighting -->
@@ -65,6 +66,52 @@
     {{ $modals ?? '' }}
 
     @stack('scripts')
+
+    {{-- resources/views/layouts/app.blade.php --}}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('validationModal', () => ({
+                show: false,
+                data: null,
+
+                open(logs) {
+                    this.data = typeof logs === 'string' ? JSON.parse(logs) : logs;
+                    this.show = true;
+                    document.body.style.overflow = 'hidden';
+                },
+
+                close() {
+                    this.show = false;
+                    this.data = null;
+                    document.body.style.overflow = '';
+                },
+
+                get totalErrors() {
+                    if (!this.data) return 0;
+                    return this.data.total_pelanggaran ||
+                        (this.data.detail_pelanggaran?.length || 0);
+                },
+
+                get hasSummary() {
+                    return this.data?.ringkasan && Object.keys(this.data.ringkasan).length > 0;
+                },
+
+                get hasGlobalIssues() {
+                    return this.data?.masalah_global?.length > 0;
+                },
+
+                get hasDetails() {
+                    return this.data?.detail_pelanggaran?.length > 0;
+                },
+
+                get hasRecommendation() {
+                    return !!this.data?.rekomendasi;
+                }
+            }));
+        });
+    </script>
 
 </body>
 
