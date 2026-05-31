@@ -41,8 +41,8 @@ def build_pdf_text_index(pdf_path):
 def find_koordinat(pdf_index, teks_docx, used_indices):
     best_score = 0.0
     best_match = None
-    best_idx = -1
-    needle = teks_docx.lower().strip()[:80]
+    best_idx   = -1
+    needle     = teks_docx.lower().strip()[:80]
 
     for i, entry in enumerate(pdf_index):
         if i in used_indices:
@@ -51,7 +51,7 @@ def find_koordinat(pdf_index, teks_docx, used_indices):
         if score > best_score:
             best_score = score
             best_match = entry
-            best_idx = i
+            best_idx   = i
 
     if best_score >= 0.6 and best_match:
         used_indices.add(best_idx)
@@ -81,7 +81,7 @@ def get_actual_spacing(paragraph):
     return 1.15
 
 def get_text_element_format(paragraph, doc_default_font, doc_default_size):
-    runs_data = []
+    runs_data    = []
     p_style_font = paragraph.style.font.name if paragraph.style and paragraph.style.font.name else doc_default_font
     p_style_size = paragraph.style.font.size.pt if paragraph.style and paragraph.style.font.size else doc_default_size
     if not paragraph.runs:
@@ -91,25 +91,47 @@ def get_text_element_format(paragraph, doc_default_font, doc_default_size):
             continue
         r_font = run.font.name if run.font.name else p_style_font
         r_size = run.font.size.pt if run.font.size else p_style_size
-        runs_data.append({
-            "font": r_font,
-            "size": r_size,
-            "text": run.text
-        })
+        runs_data.append({"font": r_font, "size": r_size, "text": run.text})
     return runs_data
 
-def validate_word(file_path, pdf_path=None):
+def parse_rules(rules_json):
+    """Parse rules JSON dari argumen ke-3, fallback ke default jika tidak ada."""
+    defaults = {
+        "required_margin_top_cm":    4.0,
+        "required_margin_bottom_cm": 3.0,
+        "required_margin_left_cm":   4.0,
+        "required_margin_right_cm":  3.0,
+        "required_line_spacing":     1.5,
+        "required_font_name":        "Times New Roman",
+        "required_font_size":        12.0,
+    }
+    if not rules_json:
+        return defaults
+    try:
+        parsed = json.loads(rules_json)
+        # Merge: pakai nilai dari rules jika ada, fallback ke default
+        return {key: parsed.get(key, defaults[key]) for key in defaults}
+    except Exception:
+        return defaults
+
+def validate_word(file_path, pdf_path=None, rules_json=None):
     if not os.path.exists(file_path):
         return {"is_valid": False, "logs": {"error": "Berkas fisik tidak ditemukan di container."}}
     try:
-        doc = Document(file_path)
+        doc   = Document(file_path)
+        rules = parse_rules(rules_json)
 
-        req_font  = "Times New Roman"
-        req_size  = 12.0
-        req_space = 1.5
+        # Ambil rules dari argumen
+        req_top    = float(rules["required_margin_top_cm"])
+        req_bottom = float(rules["required_margin_bottom_cm"])
+        req_left   = float(rules["required_margin_left_cm"])
+        req_right  = float(rules["required_margin_right_cm"])
+        req_space  = float(rules["required_line_spacing"])
+        req_font   = str(rules["required_font_name"])
+        req_size   = float(rules["required_font_size"])
+
         margin_tolerance = 0.15
         space_tolerance  = 0.08
-        req_top, req_bottom, req_left, req_right = 4.0, 3.0, 4.0, 3.0
 
         result = {
             "is_valid": True,
@@ -121,7 +143,7 @@ def validate_word(file_path, pdf_path=None):
             }
         }
 
-        
+        # --- 1. VALIDASI MARGIN ---
         for i, section in enumerate(doc.sections):
             sec_name = f"Bagian {i+1}"
             mT = round(section.top_margin.cm, 2) if section.top_margin else 0
@@ -141,7 +163,7 @@ def validate_word(file_path, pdf_path=None):
                 result["is_valid"] = False
                 result["logs"]["masalah_global"].append(f"[{sec_name}] Margin Kanan {mR} cm (Wajib: {req_right} cm)")
 
-        
+        # --- 2. PREPARASI DATA DEFAULT ---
         try:
             doc_default_font = doc.styles.element.xpath('w:docDefaults/w:rPrDefault/w:rPr/w:rFonts')[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ascii')
         except:
@@ -151,52 +173,49 @@ def validate_word(file_path, pdf_path=None):
         except:
             doc_default_size = 11.0
 
-        
+        # --- 3. BUILD PDF INDEX ---
         pdf_index        = build_pdf_text_index(pdf_path)
         used_pdf_indices = set()
 
-        
-        sim_page           = 1
-        sim_line_in_page   = 1
-        sim_accumulated    = 0.0
-        page_height_limit  = 22.0
+        # Variabel simulasi fallback
+        sim_page          = 1
+        sim_line_in_page  = 1
+        sim_accumulated   = 0.0
+        page_height_limit = 22.0
 
-        
-        current_page     = 1
-        line_in_page     = 1
+        current_page = 1
+        line_in_page = 1
 
-        
+        # --- 4. DEEP SCANNING BARIS PER BARIS ---
         for idx, para in enumerate(doc.paragraphs):
             text_clean = para.text.strip()
             if not text_clean:
                 continue
 
-            actual_spacing    = get_actual_spacing(para)
-            elements_format   = get_text_element_format(para, doc_default_font, doc_default_size)
-            max_size_in_para  = max([item['size'] for item in elements_format]) if elements_format else req_size
-            dominan_font      = elements_format[0]['font'] if elements_format else req_font
+            actual_spacing   = get_actual_spacing(para)
+            elements_format  = get_text_element_format(para, doc_default_font, doc_default_size)
+            max_size_in_para = max([item['size'] for item in elements_format]) if elements_format else req_size
+            dominan_font     = elements_format[0]['font'] if elements_format else req_font
 
-            
-            line_height_pt     = max_size_in_para * actual_spacing
-            sim_accumulated   += (line_height_pt / 72.0) * 2.54
+            # Update simulasi
+            line_height_pt   = max_size_in_para * actual_spacing
+            sim_accumulated += (line_height_pt / 72.0) * 2.54
             if sim_accumulated > page_height_limit:
                 sim_page        += 1
                 sim_line_in_page = 1
                 sim_accumulated  = (line_height_pt / 72.0) * 2.54
 
-            
+            # Cari koordinat PDF
             koordinat_pdf = find_koordinat(pdf_index, text_clean, used_pdf_indices)
 
-            
+            # Tentukan lokasi
             if koordinat_pdf:
                 actual_page = koordinat_pdf["halaman"]
-                
                 if actual_page != current_page:
                     current_page = actual_page
                     line_in_page = 1
                 location = f"Hlm. {actual_page}, Baris ~{line_in_page}"
             else:
-                
                 if sim_page != current_page:
                     current_page = sim_page
                     line_in_page = 1
@@ -206,7 +225,7 @@ def validate_word(file_path, pdf_path=None):
             is_line_valid = True
             catatan_baris = []
 
-            
+            # A. Cek Spasi
             if abs(actual_spacing - req_space) > space_tolerance:
                 result["is_valid"] = False
                 is_line_valid = False
@@ -217,7 +236,7 @@ def validate_word(file_path, pdf_path=None):
                     pelanggaran_entry["koordinat_pdf"] = koordinat_pdf
                 result["logs"]["detail_pelanggaran"].append(pelanggaran_entry)
 
-            
+            # B. Cek Font & Ukuran
             font_errors_logged = False
             size_errors_logged = False
             for elem in elements_format:
@@ -242,7 +261,7 @@ def validate_word(file_path, pdf_path=None):
                     result["logs"]["detail_pelanggaran"].append(pelanggaran_entry)
                     size_errors_logged = True
 
-            
+            # C. Log Laporan Lengkap
             laporan_entry = {
                 "lokasi": location,
                 "teks": preview,
@@ -280,7 +299,8 @@ if __name__ == "__main__":
         print(json.dumps({"error": "Path file .docx tidak ditemukan."}))
         sys.exit(1)
 
-    docx_path = sys.argv[1]
-    pdf_path  = sys.argv[2] if len(sys.argv) >= 3 else None
+    docx_path  = sys.argv[1]
+    pdf_path   = sys.argv[2] if len(sys.argv) >= 3 else None
+    rules_json = sys.argv[3] if len(sys.argv) >= 4 else None
 
-    print(json.dumps(validate_word(docx_path, pdf_path)))
+    print(json.dumps(validate_word(docx_path, pdf_path, rules_json)))
