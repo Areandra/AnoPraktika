@@ -33,7 +33,7 @@
 
             let currentPdfDoc = null;
             let currentPdfPage = 1;
-            let currentPdfScale = 1;
+            let currentPdfScale = null; // Will be calculated dynamically to fit width
             let currentSubmissionId = null;
             let activeAnnotations = [];
             let annotationCounter = 0;
@@ -46,9 +46,13 @@
 
 
             function loadPdfViewer(pdfUrl, submissionId, savedAnnotations, savedNotesBase64, systemValidationLogs) {
-                console.log("System Validation Logs:", systemValidationLogs);
+                // console.log("System Validation Logs:", systemValidationLogs);
+                window.currentValidationLogs = systemValidationLogs;
+
                 currentSubmissionId = submissionId;
-                currentPdfPage = 1;
+                // Read ?page= from URL for tracking, default to 1
+                const urlParams = new URLSearchParams(window.location.search);
+                currentPdfPage = parseInt(urlParams.get('page')) || 1;
                 activeAnnotations = savedAnnotations || [];
                 annotationCounter = activeAnnotations.length > 0 ? Math.max(...activeAnnotations.map(a => a.id)) : 0;
 
@@ -60,7 +64,13 @@
                 pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
+                    // Clamp page to valid range
+                    currentPdfPage = Math.min(currentPdfPage, pdfDoc.numPages);
                     renderPage(currentPdfPage);
+                    // Sync URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }).catch(err => {
                     console.error(err);
                     alert("Gagal membaca PDF.");
@@ -68,12 +78,13 @@
             }
 
             function loadPdfViewerStudent(pdfUrl, savedAnnotations, savedNotesBase64, systemValidationLogs) {
-                console.log("System Validation Logs:", systemValidationLogs);
-
+                // console.log("System Validation Logs:", systemValidationLogs);
 
                 window.currentValidationLogs = systemValidationLogs;
 
-                currentPdfPage = 1;
+                // Read ?page= from URL for tracking, default to 1
+                const urlParams = new URLSearchParams(window.location.search);
+                currentPdfPage = parseInt(urlParams.get('page')) || 1;
                 activeAnnotations = savedAnnotations || [];
                 showPdfUI();
 
@@ -91,7 +102,13 @@
                 pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
+                    // Clamp page to valid range
+                    currentPdfPage = Math.min(currentPdfPage, pdfDoc.numPages);
                     renderPage(currentPdfPage);
+                    // Sync URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }).catch(err => {
                     console.error(err);
                     alert("Gagal membaca PDF.");
@@ -113,23 +130,45 @@
             function renderPage(num) {
                 if (!currentPdfDoc) return;
                 currentPdfDoc.getPage(num).then(page => {
+                    // Dynamically calculate scale to fit the container width on first load
+                    if (!currentPdfScale) {
+                        const container = document.getElementById('pdf-scroll-container');
+                        const unscaledViewport = page.getViewport({ scale: 1.0 });
+                        // Use container width, subtract a small margin (e.g. 16px) for safety
+                        const containerWidth = container.clientWidth || window.innerWidth;
+                        const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
+                        currentPdfScale = Math.max(0.5, calculatedScale);
+                    }
+
                     const viewport = page.getViewport({
                         scale: currentPdfScale
                     });
 
+                    // HD Rendering for crisp text on high DPI displays
+                    const outputScale = window.devicePixelRatio || 1;
 
-                    pdfCanvas.height = viewport.height;
-                    pdfCanvas.width = viewport.width;
+                    pdfCanvas.width = Math.floor(viewport.width * outputScale);
+                    pdfCanvas.height = Math.floor(viewport.height * outputScale);
+                    
+                    // Set CSS size to match the logical viewport size
+                    pdfCanvas.style.width = Math.floor(viewport.width) + "px";
+                    pdfCanvas.style.height = Math.floor(viewport.height) + "px";
 
                     const wrapper = document.getElementById('pdf-render-wrapper');
-                    wrapper.style.width = viewport.width + 'px';
-                    wrapper.style.height = viewport.height + 'px';
+                    wrapper.style.width = Math.floor(viewport.width) + 'px';
+                    wrapper.style.height = Math.floor(viewport.height) + 'px';
 
+                    const transform = outputScale !== 1 
+                        ? [outputScale, 0, 0, outputScale, 0, 0] 
+                        : null;
 
-                    page.render({
+                    const renderContext = {
                         canvasContext: pdfContext,
-                        viewport
-                    }).promise.then(() => {
+                        transform: transform,
+                        viewport: viewport
+                    };
+
+                    page.render(renderContext).promise.then(() => {
                         document.getElementById('pdf-current-page').textContent = num;
                         const indicator = document.getElementById('target-page-indicator');
                         if (indicator) indicator.textContent = 'Halaman ' + num;
@@ -430,14 +469,20 @@
                 if (next >= 1 && next <= currentPdfDoc.numPages) {
                     currentPdfPage = next;
                     renderPage(currentPdfPage);
+                    // URL tracking: update ?page= without reload
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }
             }
 
             function zoomPdf(amount) {
-                currentPdfScale = Math.max(0.8, Math.min(2.5, currentPdfScale + amount));
-                document.getElementById('pdf-render-wrapper').style.transform = `scale(${currentPdfScale})`;
-
-
+                if (!currentPdfScale) return;
+                currentPdfScale = Math.max(0.3, Math.min(4.0, currentPdfScale + amount));
+                // Remove any lingering CSS transforms
+                document.getElementById('pdf-render-wrapper').style.transform = '';
+                // Re-render the page at the new scale for HD crispness
+                renderPage(currentPdfPage);
             }
 
             function catchCoordinates(event) {
@@ -450,8 +495,9 @@
                 if (!layer) return;
 
                 const rect = layer.getBoundingClientRect();
-                const x = Math.round(event.clientX - rect.left);
-                const y = Math.round(event.clientY - rect.top);
+                // Normalize coordinates to scale 1.0 so they remain accurate across zooms
+                const x = Math.round((event.clientX - rect.left) / currentPdfScale);
+                const y = Math.round((event.clientY - rect.top) / currentPdfScale);
 
                 annotationCounter++;
                 pendingAnnotation = {
@@ -494,8 +540,10 @@
                 const marker = document.createElement('div');
                 marker.className =
                     "absolute w-5 h-5 bg-red-500 text-white font-mono font-bold text-[9px] rounded-full flex items-center justify-center shadow-lg border border-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition hover:scale-110";
-                marker.style.left = ann.x + 'px';
-                marker.style.top = ann.y + 'px';
+                
+                // Scale back up the normalized coordinates
+                marker.style.left = (ann.x * currentPdfScale) + 'px';
+                marker.style.top = (ann.y * currentPdfScale) + 'px';
 
 
                 marker.style.pointerEvents = 'auto';
@@ -542,22 +590,23 @@
 
                 if (pageAnns.length === 0) {
                     container.innerHTML =
-                        '<span class="text-gray-600 italic text-[9px]">Belum ada poin komentar di halaman ini.</span>';
+                        '<span class="text-slate-700 italic text-[10px]">Belum ada titik komentar di halaman ini.</span>';
                     return;
                 }
 
                 container.innerHTML = pageAnns.map(a => `
-                    <div class="flex justify-between items-center bg-[#1e293b] p-1 rounded px-2 border border-gray-800">
-                        <span>
-                            #${a.id} (${a.x}, ${a.y})
-                            ${String(a.comment).substring(0, 20)}
+                    <div class="flex justify-between items-center rounded-lg px-2 py-1.5 border" style="background: rgba(13,20,36,0.8); border-color: rgba(51,65,85,0.5);">
+                        <span class="text-[10px] font-mono text-amber-400 truncate flex-1 min-w-0">
+                            <span class="text-slate-500">#${a.id}</span>
+                            <span class="text-slate-600 mx-1">(${a.x},${a.y})</span>
+                            ${String(a.comment).substring(0, 18)}${a.comment.length > 18 ? '…' : ''}
                         </span>
-
                         <button
                             type="button"
                             onclick="removeAnnotation(${a.id})"
-                            class="text-red-400 hover:text-red-300 font-bold px-1">
-                            Hapus
+                            class="flex-shrink-0 ml-1 text-red-500 hover:text-red-400 transition"
+                            title="Hapus anotasi">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
                 `).join('');

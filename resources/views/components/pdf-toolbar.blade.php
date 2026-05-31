@@ -1,21 +1,40 @@
+{{-- components/pdf-toolbar.blade.php --}}
 <div id="pdf-toolbar"
-    class="hidden bg-[#181f32] p-2 border-b border-gray-800 flex items-center justify-between px-4 text-gray-400 font-mono text-[10px] z-10 shadow">
+     class="hidden flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-slate-800/60 z-10"
+     style="background: #0a1020;">
+
+    {{-- Navigation --}}
     <div class="flex items-center gap-2">
-        <button onclick="changePage(-1)" class="p-1 hover:text-white bg-gray-800 rounded transition">
-            <i class="ri-arrow-left-s-line"></i>
+        <button onclick="changePage(-1)"
+            class="w-7 h-7 rounded-lg flex items-center justify-center transition text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/40">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
         </button>
-        <span>Halaman <span id="pdf-current-page" class="text-white font-bold">0</span> / <span
-                id="pdf-total-pages">0</span></span>
-        <button onclick="changePage(1)" class="p-1 hover:text-white bg-gray-800 rounded transition">
-            <i class="ri-arrow-right-s-line"></i>
+
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/40">
+            <i data-lucide="file-text" class="w-3 h-3 text-slate-500"></i>
+            <span class="text-xs font-mono text-slate-300">
+                Hal <span id="pdf-current-page" class="text-white font-bold">0</span>
+                <span class="text-slate-600">/</span>
+                <span id="pdf-total-pages" class="text-slate-400">0</span>
+            </span>
+        </div>
+
+        <button onclick="changePage(1)"
+            class="w-7 h-7 rounded-lg flex items-center justify-center transition text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/40">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
         </button>
     </div>
-    <div class="flex items-center gap-2">
-        <button onclick="zoomPdf(0.1)" class="p-1 hover:text-white bg-gray-800 rounded transition">
-            <i class="ri-zoom-in-line"></i>
+
+    {{-- Zoom Controls --}}
+    <div class="flex items-center gap-1.5">
+        <span class="text-xs text-slate-600 font-mono mr-1">Zoom</span>
+        <button onclick="zoomPdf(-0.1)"
+            class="w-7 h-7 rounded-lg flex items-center justify-center transition text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/40">
+            <i data-lucide="zoom-out" class="w-4 h-4"></i>
         </button>
-        <button onclick="zoomPdf(-0.1)" class="p-1 hover:text-white bg-gray-800 rounded transition">
-            <i class="ri-zoom-out-line"></i>
+        <button onclick="zoomPdf(0.1)"
+            class="w-7 h-7 rounded-lg flex items-center justify-center transition text-slate-400 hover:text-white hover:bg-slate-700/60 border border-slate-700/40">
+            <i data-lucide="zoom-in" class="w-4 h-4"></i>
         </button>
     </div>
 </div>
