@@ -10,6 +10,25 @@
          style="background: rgba(10,16,32,0.95); border: 1px solid rgba(99,102,241,0.25); color: #c7d2fe; backdrop-filter: blur(8px);">
     </div>
 
+    {{-- PDF Loading Overlay --}}
+    <div id="pdf-loading-overlay" class="absolute inset-0 z-50 hidden flex-col items-center justify-center" style="background: rgba(6,11,24,0.85); backdrop-filter: blur(4px);">
+        <div class="relative w-16 h-16 mb-4">
+            <svg class="animate-spin w-full h-full text-slate-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="#6366f1" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span id="pdf-loading-percentage" class="text-[10px] font-bold text-white font-mono">0%</span>
+            </div>
+        </div>
+        <p class="text-xs font-medium text-slate-300 tracking-wide uppercase">Memuat Dokumen</p>
+    </div>
+
+    {{-- Continuous Mode Container --}}
+    <div id="pdf-continuous-container" class="hidden w-full flex-col gap-6 items-center py-6">
+        {{-- Wrappers will be injected here dynamically --}}
+    </div>
+
     {{-- PDF Render Wrapper --}}
     <div id="pdf-render-wrapper"
          class="relative shadow-2xl hidden origin-top-left mx-auto my-6 w-max"
