@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('practicum_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('role', ['student', 'assistant'])->default('student');
+            $table->enum('status', ['joined', 'request'])->default('joined');
             $table->timestamps();
         });
     }

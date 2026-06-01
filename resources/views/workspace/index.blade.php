@@ -65,8 +65,11 @@
 
                 const loadingOverlay = document.getElementById('pdf-loading-overlay');
                 const loadingPct = document.getElementById('pdf-loading-percentage');
-                if(loadingOverlay) { loadingOverlay.classList.remove('hidden'); loadingOverlay.classList.add('flex'); }
-                if(loadingPct) loadingPct.textContent = '0%';
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = '0%';
 
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 loadingTask.onProgress = function(progress) {
@@ -77,7 +80,10 @@
                 };
 
                 loadingTask.promise.then(pdfDoc => {
-                    if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
                     // Clamp page to valid range
@@ -92,7 +98,10 @@
                     url.searchParams.set('page', currentPdfPage);
                     history.replaceState(null, '', url.toString());
                 }).catch(err => {
-                    if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     console.error(err);
                     alert("Gagal membaca PDF.");
                 });
@@ -122,8 +131,11 @@
 
                 const loadingOverlay = document.getElementById('pdf-loading-overlay');
                 const loadingPct = document.getElementById('pdf-loading-percentage');
-                if(loadingOverlay) { loadingOverlay.classList.remove('hidden'); loadingOverlay.classList.add('flex'); }
-                if(loadingPct) loadingPct.textContent = '0%';
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = '0%';
 
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 loadingTask.onProgress = function(progress) {
@@ -134,7 +146,10 @@
                 };
 
                 loadingTask.promise.then(pdfDoc => {
-                    if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
                     // Clamp page to valid range
@@ -149,7 +164,10 @@
                     url.searchParams.set('page', currentPdfPage);
                     history.replaceState(null, '', url.toString());
                 }).catch(err => {
-                    if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     console.error(err);
                     alert("Gagal membaca PDF.");
                 });
@@ -158,7 +176,7 @@
             function showPdfUI() {
                 document.getElementById('pdf-placeholder').classList.add('hidden');
                 document.getElementById('pdf-toolbar').classList.remove('hidden');
-                
+
                 if (!isContinuousMode) {
                     document.getElementById('pdf-render-wrapper').classList.remove('hidden');
                     document.getElementById('pdf-continuous-container').classList.add('hidden');
@@ -177,7 +195,9 @@
                     // Dynamically calculate scale to fit the container width on first load
                     if (!currentPdfScale) {
                         const container = document.getElementById('pdf-scroll-container');
-                        const unscaledViewport = page.getViewport({ scale: 1.0 });
+                        const unscaledViewport = page.getViewport({
+                            scale: 1.0
+                        });
                         // Use container width, subtract a small margin (e.g. 16px) for safety
                         const containerWidth = container.clientWidth || window.innerWidth;
                         const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
@@ -193,7 +213,7 @@
 
                     pdfCanvas.width = Math.floor(viewport.width * outputScale);
                     pdfCanvas.height = Math.floor(viewport.height * outputScale);
-                    
+
                     // Set CSS size to match the logical viewport size
                     pdfCanvas.style.width = Math.floor(viewport.width) + "px";
                     pdfCanvas.style.height = Math.floor(viewport.height) + "px";
@@ -202,9 +222,8 @@
                     wrapper.style.width = Math.floor(viewport.width) + 'px';
                     wrapper.style.height = Math.floor(viewport.height) + 'px';
 
-                    const transform = outputScale !== 1 
-                        ? [outputScale, 0, 0, outputScale, 0, 0] 
-                        : null;
+                    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] :
+                        null;
 
                     const renderContext = {
                         canvasContext: pdfContext,
@@ -249,12 +268,14 @@
                                 .promise : textLayerRenderTask;
                             if (textPromise && typeof textPromise.then === 'function') {
                                 textPromise.then(() => {
-                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport);
+                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport,
+                                        wrapper);
                                 });
                             } else {
 
                                 setTimeout(() => {
-                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport);
+                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport,
+                                        wrapper);
                                 }, 200);
                             }
                         });
@@ -290,13 +311,14 @@
                 });
             }
 
-            function highlightErrorsInTextLayer(container, currentPage, viewport) {
+            function highlightErrorsInTextLayer(container, currentPage, viewport, wrapper) {
 
                 let logs = [];
                 if (window.currentValidationLogs) {
                     if (Array.isArray(window.currentValidationLogs.laporan_lengkap)) {
                         logs = window.currentValidationLogs.laporan_lengkap;
-                    } else if (window.currentValidationLogs.logs && Array.isArray(window.currentValidationLogs.logs.laporan_lengkap)) {
+                    } else if (window.currentValidationLogs.logs && Array.isArray(window.currentValidationLogs.logs
+                            .laporan_lengkap)) {
                         logs = window.currentValidationLogs.logs.laporan_lengkap;
                     }
                 }
@@ -312,7 +334,6 @@
 
                 if (invalidLogs.length === 0) {
                     // No errors on this page — still clear any stale highlights from previous page
-                    const wrapper = document.getElementById('pdf-render-wrapper');
                     if (wrapper) wrapper.querySelectorAll('.pdf-error-highlight').forEach(el => el.remove());
                     return;
                 }
@@ -321,7 +342,6 @@
                 // NOT to the text layer. This guarantees coordinates are in the same space
                 // as the PDF canvas: pdfPoint * viewport.scale = CSS pixels from page top-left.
                 // This is pixel-perfect on ALL devices regardless of text layer CSS or scroll.
-                const wrapper = document.getElementById('pdf-render-wrapper');
                 const scale = viewport.scale;
 
                 // Build page text for fallback (no-coords) matching
@@ -352,19 +372,20 @@
                         const box = document.createElement('div');
                         box.classList.add('pdf-error-highlight');
                         box.style.position = 'absolute';
-                        box.style.left     = `${pdfBox.x0}px`;
-                        box.style.top      = `${pdfBox.y0}px`;
-                        box.style.width    = `${Math.max(pdfBox.x1 - pdfBox.x0, 4)}px`;
-                        box.style.height   = `${Math.max(pdfBox.y1 - pdfBox.y0, 4)}px`;
+                        box.style.left = `${pdfBox.x0}px`;
+                        box.style.top = `${pdfBox.y0}px`;
+                        box.style.width = `${Math.max(pdfBox.x1 - pdfBox.x0, 4)}px`;
+                        box.style.height = `${Math.max(pdfBox.y1 - pdfBox.y0, 4)}px`;
                         box.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
-                        box.style.borderBottom    = '2px dashed #ef4444';
-                        box.style.borderRadius    = '2px';
-                        box.style.cursor          = 'help';
-                        box.style.pointerEvents   = 'auto';
-                        box.style.zIndex          = '25';
-                        box.dataset.errors   = JSON.stringify(item.detail_catatan || [item.teks]);
+                        box.style.borderBottom = '2px dashed #ef4444';
+                        box.style.borderRadius = '2px';
+                        box.style.cursor = 'help';
+                        box.style.pointerEvents = 'auto';
+                        box.style.zIndex = '25';
+                        box.dataset.errors = JSON.stringify(item.detail_catatan || [item.teks]);
                         box.dataset.location = item.lokasi;
-                        box.dataset.specs    = `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
+                        box.dataset.specs =
+                            `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
                         wrapper.appendChild(box);
                         return; // done for this item
                     }
@@ -376,14 +397,15 @@
                     Array.from(container.querySelectorAll('span')).forEach(span => {
                         if (!span.textContent.toLowerCase().includes(searchStr)) return;
                         span.classList.add('pdf-error-highlight');
-                        span.style.pointerEvents    = 'auto';
-                        span.style.backgroundColor  = 'rgba(239, 68, 68, 0.25)';
-                        span.style.borderBottom     = '2px dashed #ef4444';
-                        span.style.borderRadius     = '2px';
-                        span.style.cursor           = 'help';
-                        span.dataset.errors   = JSON.stringify(item.detail_catatan || [item.teks]);
+                        span.style.pointerEvents = 'auto';
+                        span.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
+                        span.style.borderBottom = '2px dashed #ef4444';
+                        span.style.borderRadius = '2px';
+                        span.style.cursor = 'help';
+                        span.dataset.errors = JSON.stringify(item.detail_catatan || [item.teks]);
                         span.dataset.location = item.lokasi;
-                        span.dataset.specs    = `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
+                        span.dataset.specs =
+                            `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
                     });
                 });
 
@@ -433,16 +455,20 @@
                     ).join('');
 
                     tooltip.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                ⚠️ Malformat (${location})
-            </div>
-            <ul style="padding: 0; margin: 0 0 8px 0;">
-                ${errorItems}
-            </ul>
-            <div style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; font-style: italic;">
-                ${specs}
-            </div>
-        `;
+                        <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <span class="flex items-center gap-1 flex-row">
+                                <i data-lucide="message-square-warning" class="w-4 h-4 text-slate-500"></i>
+                                Malformat (${location})
+                            </span>
+                        </div>
+                        <ul style="padding: 0; margin: 0 0 8px 0;">
+                            ${errorItems}
+                        </ul>
+                        <div style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; font-style: italic;">
+                            ${specs}
+                        </div>
+                    `;
+                    lucide.createIcons();
                     tooltip.style.display = 'block';
                 });
 
@@ -494,74 +520,84 @@
             function toggleContinuousMode() {
                 if (!currentPdfDoc) return;
                 isContinuousMode = !isContinuousMode;
-                
+
                 const btn = document.getElementById('btn-continuous-mode');
                 const scrollContainer = document.getElementById('pdf-scroll-container');
                 const singleWrapper = document.getElementById('pdf-render-wrapper');
                 const contContainer = document.getElementById('pdf-continuous-container');
                 const btnNext = document.getElementById('btn-page-next');
                 const btnPrev = document.getElementById('btn-page-prev');
-                
+
                 if (isContinuousMode) {
                     btn.classList.add('bg-indigo-500/20', 'border-indigo-500/50', 'text-indigo-400');
                     btn.classList.remove('text-slate-400', 'bg-slate-800/50', 'border-slate-700/40');
-                    
+
                     singleWrapper.classList.add('hidden');
-                    if(btnNext) btnNext.classList.add('opacity-50', 'pointer-events-none');
-                    if(btnPrev) btnPrev.classList.add('opacity-50', 'pointer-events-none');
-                    
+                    if (btnNext) btnNext.classList.add('opacity-50', 'pointer-events-none');
+                    if (btnPrev) btnPrev.classList.add('opacity-50', 'pointer-events-none');
+
                     renderAllPages();
                 } else {
                     btn.classList.remove('bg-indigo-500/20', 'border-indigo-500/50', 'text-indigo-400');
                     btn.classList.add('text-slate-400', 'bg-slate-800/50', 'border-slate-700/40');
-                    
+
                     contContainer.innerHTML = '';
                     contContainer.classList.add('hidden');
                     contContainer.classList.remove('flex');
                     singleWrapper.classList.remove('hidden');
-                    
-                    if(btnNext) btnNext.classList.remove('opacity-50', 'pointer-events-none');
-                    if(btnPrev) btnPrev.classList.remove('opacity-50', 'pointer-events-none');
-                    
+
+                    if (btnNext) btnNext.classList.remove('opacity-50', 'pointer-events-none');
+                    if (btnPrev) btnPrev.classList.remove('opacity-50', 'pointer-events-none');
+
                     renderPage(currentPdfPage);
                 }
             }
 
             async function renderAllPages() {
                 if (!currentPdfDoc) return;
-                
+
                 const container = document.getElementById('pdf-continuous-container');
                 container.innerHTML = '';
                 container.classList.remove('hidden');
                 container.classList.add('flex');
-                
+
                 document.getElementById('pdf-current-page').textContent = 'All';
 
                 // Optional: show loading overlay while rendering all pages
                 const loadingOverlay = document.getElementById('pdf-loading-overlay');
                 const loadingPct = document.getElementById('pdf-loading-percentage');
-                if(loadingOverlay) { loadingOverlay.classList.remove('hidden'); loadingOverlay.classList.add('flex'); }
-                if(loadingPct) loadingPct.textContent = 'Rendering...';
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = 'Rendering...';
 
                 for (let i = 1; i <= currentPdfDoc.numPages; i++) {
                     await renderSingleContinuousPage(i, container);
                 }
 
-                if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hidden');
+                    loadingOverlay.classList.remove('flex');
+                }
             }
 
             async function renderSingleContinuousPage(num, container) {
                 const page = await currentPdfDoc.getPage(num);
-                
+
                 if (!currentPdfScale) {
                     const scrollContainer = document.getElementById('pdf-scroll-container');
-                    const unscaledViewport = page.getViewport({ scale: 1.0 });
+                    const unscaledViewport = page.getViewport({
+                        scale: 1.0
+                    });
                     const containerWidth = scrollContainer.clientWidth || window.innerWidth;
                     const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
                     currentPdfScale = Math.max(0.5, calculatedScale);
                 }
 
-                const viewport = page.getViewport({ scale: currentPdfScale });
+                const viewport = page.getViewport({
+                    scale: currentPdfScale
+                });
                 const outputScale = window.devicePixelRatio || 1;
 
                 // Create wrapper
@@ -585,7 +621,8 @@
                 // Interactive layer
                 const disableClick = {{ $disableClick ?? 'false' }};
                 const interactiveLayer = document.createElement('div');
-                interactiveLayer.className = `absolute inset-0 z-20 ${disableClick ? 'cursor-default' : 'cursor-crosshair'}`;
+                interactiveLayer.className =
+                    `absolute inset-0 z-20 ${disableClick ? 'cursor-default' : 'cursor-crosshair'}`;
                 interactiveLayer.setAttribute('data-page', num);
                 if (!disableClick) {
                     interactiveLayer.onclick = function(e) {
@@ -609,6 +646,42 @@
                 };
 
                 await page.render(renderContext).promise;
+
+                console.log(`[Page ${num}] currentValidationLogs:`, window.currentValidationLogs);
+
+                let textLayerDiv = document.createElement('div');
+                textLayerDiv.className = 'textLayer';
+                textLayerDiv.style.width = viewport.width + 'px';
+                textLayerDiv.style.height = viewport.height + 'px';
+                textLayerDiv.style.position = 'absolute';
+                textLayerDiv.style.top = '0';
+                textLayerDiv.style.left = '0';
+                textLayerDiv.style.zIndex = '20';
+
+                wrapper.appendChild(textLayerDiv);
+
+                page.getTextContent().then(textContent => {
+                    const textLayerRenderTask = pdfjsLib.renderTextLayer({
+                        textContent: textContent,
+                        container: textLayerDiv,
+                        viewport: viewport,
+                        textDivs: []
+                    });
+
+                    const textPromise = textLayerRenderTask.promise ?
+                        textLayerRenderTask.promise :
+                        textLayerRenderTask;
+
+                    if (textPromise && typeof textPromise.then === 'function') {
+                        textPromise.then(() => {
+                            highlightErrorsInTextLayer(textLayerDiv, num, viewport, wrapper);
+                        });
+                    } else {
+                        setTimeout(() => {
+                            highlightErrorsInTextLayer(textLayerDiv, num, viewport, wrapper);
+                        }, 200);
+                    }
+                });
 
                 // Render markers for this page
                 drawMarkersForPage(num);
@@ -685,13 +758,13 @@
                     if (ann.page !== currentPdfPage) return;
                     layer = document.getElementById('pdf-marker-layer');
                 }
-                
+
                 if (!layer) return;
 
                 const marker = document.createElement('div');
                 marker.className =
                     "absolute w-5 h-5 bg-red-500 text-white font-mono font-bold text-[9px] rounded-full flex items-center justify-center shadow-lg border border-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition hover:scale-110";
-                
+
                 // Scale back up the normalized coordinates
                 marker.style.left = (ann.x * currentPdfScale) + 'px';
                 marker.style.top = (ann.y * currentPdfScale) + 'px';
@@ -771,63 +844,74 @@
             }
 
 
-            const tooltip = document.getElementById('annotation-tooltip');
-            const scrollContainer = document.getElementById('pdf-scroll-container');
+            function getOrCreateAnnotationTooltip() {
+                let tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.id = 'pdf-dynamic-annotation-tooltip';
 
+                    // Style persis seperti setupTooltipEngine
+                    Object.assign(tooltip.style, {
+                        position: 'fixed',
+                        zIndex: '9999',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        color: '#f8fafc',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+                        display: 'none', // Sembunyikan default
+                        pointerEvents: 'none',
+                        maxWidth: '300px',
+                        lineHeight: '1.5',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(4px)',
+                        fontFamily: 'sans-serif'
+                    });
+                    document.body.appendChild(tooltip);
+                }
+                return tooltip;
+            }
+
+            // 2. Tampilkan tooltip saat hover
             function showTooltip(e) {
                 const comment = e.currentTarget.getAttribute('data-comment');
                 if (!comment || comment === 'Tidak ada komentar') return;
-                tooltip.innerText = comment;
-                tooltip.classList.remove('hidden');
-                positionTooltip(e.currentTarget);
+
+                const tooltip = getOrCreateAnnotationTooltip();
+
+                tooltip.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; letter-spacing: 0.5px;">
+                        <span class="flex items-center gap-1 justify-center flex-row">
+                            <i data-lucide="message-square-warning" class="w-4 h-4 text-slate-500"></i>
+                            <p>Komentar Anotasi</p>
+                        </span>
+                    </div>
+                    <p style="margin-bottom: 4px; color: #f87171;">${comment}</p>
+                `;
+
+                lucide.createIcons();
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
             }
 
-            function hideTooltip() {
-                tooltip.classList.add('hidden');
-            }
-
-            function positionTooltip(marker) {
-                const tooltip = document.getElementById('annotation-tooltip');
-                const scrollContainer = document.getElementById('pdf-scroll-container');
-                if (!tooltip || !scrollContainer || !marker) return;
-
-                const markerRect = marker.getBoundingClientRect();
-                const containerRect = scrollContainer.getBoundingClientRect();
-
-
-                const markerLeft = markerRect.left - containerRect.left + scrollContainer.scrollLeft;
-                const markerTop = markerRect.top - containerRect.top + scrollContainer.scrollTop;
-                const markerCenterX = markerLeft + markerRect.width / 2;
-                const markerCenterY = markerTop + markerRect.height / 2;
-
-                const tooltipWidth = tooltip.offsetWidth;
-                const tooltipHeight = tooltip.offsetHeight;
-                const margin = 12;
-
-                let left, top;
-
-
-                if (markerLeft + markerRect.width + tooltipWidth + margin <= scrollContainer.scrollWidth) {
-                    left = markerLeft + markerRect.width + margin;
-                    top = markerCenterY - tooltipHeight / 2;
-                } else if (markerLeft - tooltipWidth - margin >= 0) {
-                    left = markerLeft - tooltipWidth - margin;
-                    top = markerCenterY - tooltipHeight / 2;
-                } else {
-                    left = markerCenterX - tooltipWidth / 2;
-                    top = markerTop - tooltipHeight - margin;
+            // 3. Ikuti pergerakan kursor (Tambahkan ini ke event mousemove di HTML marker-mu)
+            function moveTooltip(e) {
+                const tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (tooltip && tooltip.style.display === 'block') {
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
                 }
+            }
 
-
-                const maxLeft = scrollContainer.scrollWidth - tooltipWidth;
-                const maxTop = scrollContainer.scrollHeight - tooltipHeight;
-
-                left = Math.max(0, Math.min(left, maxLeft));
-                top = Math.max(0, Math.min(top, maxTop));
-
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-                tooltip.style.transform = 'none';
+            // 4. Sembunyikan tooltip
+            function hideTooltip() {
+                const tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (tooltip) {
+                    tooltip.style.display = 'none';
+                }
             }
 
             const CODE_EXTENSIONS = [

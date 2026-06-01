@@ -22,7 +22,7 @@ class Practicum extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'practicum_users')
-            ->withPivot('role')
+            ->withPivot('role', 'status')
             ->withTimestamps();
     }
 
