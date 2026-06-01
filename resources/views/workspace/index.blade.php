@@ -42,8 +42,8 @@
             const pdfCanvas = document.getElementById('pdf-canvas');
             const pdfContext = pdfCanvas?.getContext('2d');
 
-
             let pendingAnnotation = null;
+            let currentRenderVersion = 0;
 
 
             function loadPdfViewer(pdfUrl, submissionId, savedAnnotations, savedNotesBase64, systemValidationLogs) {
@@ -173,15 +173,19 @@
 
             function renderPage(num) {
                 if (!currentPdfDoc) return;
+                const version = ++currentRenderVersion;
+                
                 currentPdfDoc.getPage(num).then(page => {
+                    if (currentRenderVersion !== version) return;
+                    
                     // Dynamically calculate scale to fit the container width on first load
                     if (!currentPdfScale) {
                         const container = document.getElementById('pdf-scroll-container');
                         const unscaledViewport = page.getViewport({ scale: 1.0 });
                         // Use container width, subtract a small margin (e.g. 16px) for safety
                         const containerWidth = container.clientWidth || window.innerWidth;
-                        const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
-                        currentPdfScale = Math.max(0.5, calculatedScale);
+                        const calculatedScale = ((containerWidth - 64) / unscaledViewport.width) * 0.85;
+                        currentPdfScale = Math.min(1.3, Math.max(0.5, calculatedScale));
                     }
 
                     const viewport = page.getViewport({
@@ -213,6 +217,8 @@
                     };
 
                     page.render(renderContext).promise.then(() => {
+                        if (currentRenderVersion !== version) return;
+                        
                         document.getElementById('pdf-current-page').textContent = num;
                         const indicator = document.getElementById('target-page-indicator');
                         if (indicator) indicator.textContent = 'Halaman ' + num;
@@ -249,11 +255,13 @@
                                 .promise : textLayerRenderTask;
                             if (textPromise && typeof textPromise.then === 'function') {
                                 textPromise.then(() => {
+                                    if (currentRenderVersion !== version) return;
                                     highlightErrorsInTextLayer(textLayerDiv, num, viewport);
                                 });
                             } else {
 
                                 setTimeout(() => {
+                                    if (currentRenderVersion !== version) return;
                                     highlightErrorsInTextLayer(textLayerDiv, num, viewport);
                                 }, 200);
                             }
@@ -478,6 +486,38 @@
                 }
             }
 
+            function jumpToPage(numStr) {
+                if (!currentPdfDoc) return;
+                
+                if (numStr.toLowerCase() === 'all') {
+                    if (!isContinuousMode) {
+                        // Keep input as 'All', it'll be handled by toggleContinuousMode
+                        toggleContinuousMode(); 
+                    }
+                    return;
+                }
+
+                const num = parseInt(numStr);
+                if (!isNaN(num) && num >= 1 && num <= currentPdfDoc.numPages) {
+                    if (isContinuousMode) {
+                        const pageWrapper = document.querySelector('.pdf-continuous-page[data-page="' + num + '"]');
+                        if (pageWrapper) {
+                            pageWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                        // Update to the selected page immediately
+                        document.getElementById('pdf-current-page').textContent = num;
+                    } else {
+                        currentPdfPage = num;
+                        renderPage(currentPdfPage);
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('page', currentPdfPage);
+                        history.replaceState(null, '', url.toString());
+                    }
+                } else {
+                    document.getElementById('pdf-current-page').textContent = isContinuousMode ? 'All' : currentPdfPage;
+                }
+            }
+
             // Keyboard Shortcuts
             document.addEventListener('keydown', function(e) {
                 if (!currentPdfDoc || isContinuousMode) return;
@@ -530,12 +570,15 @@
             async function renderAllPages() {
                 if (!currentPdfDoc) return;
                 
+                const version = ++currentRenderVersion;
+                
                 const container = document.getElementById('pdf-continuous-container');
                 container.innerHTML = '';
                 container.classList.remove('hidden');
                 container.classList.add('flex');
                 
-                document.getElementById('pdf-current-page').textContent = 'All';
+                // Initialize to page 1 instead of 'All'
+                document.getElementById('pdf-current-page').textContent = currentPdfPage || 1;
 
                 // Optional: show loading overlay while rendering all pages
                 const loadingOverlay = document.getElementById('pdf-loading-overlay');
@@ -544,21 +587,25 @@
                 if(loadingPct) loadingPct.textContent = 'Rendering...';
 
                 for (let i = 1; i <= currentPdfDoc.numPages; i++) {
-                    await renderSingleContinuousPage(i, container);
+                    if (currentRenderVersion !== version) return; // Abort if newer render requested
+                    await renderSingleContinuousPage(i, container, version);
                 }
 
-                if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                if (currentRenderVersion === version) {
+                    if(loadingOverlay) { loadingOverlay.classList.add('hidden'); loadingOverlay.classList.remove('flex'); }
+                }
             }
 
-            async function renderSingleContinuousPage(num, container) {
+            async function renderSingleContinuousPage(num, container, version) {
                 const page = await currentPdfDoc.getPage(num);
+                if (version && currentRenderVersion !== version) return;
                 
                 if (!currentPdfScale) {
                     const scrollContainer = document.getElementById('pdf-scroll-container');
                     const unscaledViewport = page.getViewport({ scale: 1.0 });
                     const containerWidth = scrollContainer.clientWidth || window.innerWidth;
-                    const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
-                    currentPdfScale = Math.max(0.5, calculatedScale);
+                    const calculatedScale = ((containerWidth - 64) / unscaledViewport.width) * 0.85;
+                    currentPdfScale = Math.min(1.3, Math.max(0.5, calculatedScale));
                 }
 
                 const viewport = page.getViewport({ scale: currentPdfScale });
@@ -599,7 +646,8 @@
                 markerLayer.id = `pdf-marker-layer-${num}`;
                 markerLayer.className = "absolute inset-0 pointer-events-none z-30";
                 wrapper.appendChild(markerLayer);
-
+                
+                if (version && currentRenderVersion !== version) return;
                 container.appendChild(wrapper);
 
                 const renderContext = {
@@ -609,22 +657,27 @@
                 };
 
                 await page.render(renderContext).promise;
+                if (version && currentRenderVersion !== version) return;
 
                 // Render markers for this page
                 drawMarkersForPage(num);
             }
 
+            let zoomTimeout = null;
             function zoomPdf(amount) {
                 if (!currentPdfScale) return;
                 currentPdfScale = Math.max(0.3, Math.min(4.0, currentPdfScale + amount));
                 // Remove any lingering CSS transforms
                 document.getElementById('pdf-render-wrapper').style.transform = '';
-                // Re-render the page at the new scale for HD crispness
-                if (isContinuousMode) {
-                    renderAllPages();
-                } else {
-                    renderPage(currentPdfPage);
-                }
+                
+                if (zoomTimeout) clearTimeout(zoomTimeout);
+                zoomTimeout = setTimeout(() => {
+                    if (isContinuousMode) {
+                        renderAllPages();
+                    } else {
+                        renderPage(currentPdfPage);
+                    }
+                }, 200); // debounce renders
             }
 
             function catchCoordinates(event, pageNum = null) {
@@ -1071,6 +1124,41 @@
                 div.innerText = text;
 
                 return div.innerHTML;
+            }
+            
+            // Scroll observer for continuous mode to update page number
+            let continuousScrollTimeout;
+            const pdfScrollContainerNode = document.getElementById('pdf-scroll-container');
+            if (pdfScrollContainerNode) {
+                pdfScrollContainerNode.addEventListener('scroll', function(e) {
+                    if (!isContinuousMode) return;
+                    if (continuousScrollTimeout) cancelAnimationFrame(continuousScrollTimeout);
+                    
+                    continuousScrollTimeout = requestAnimationFrame(() => {
+                        const pages = document.querySelectorAll('.pdf-continuous-page');
+                        if (pages.length === 0) return;
+                        
+                        const containerRect = pdfScrollContainerNode.getBoundingClientRect();
+                        let currentPageNum = currentPdfPage;
+                        
+                        for (let i = 0; i < pages.length; i++) {
+                            const rect = pages[i].getBoundingClientRect();
+                            // A page is considered "current" if its bottom edge is visible below the top of the container
+                            // We use a threshold of 30% of the page's height or 100px (whichever is smaller)
+                            const threshold = Math.min(rect.height * 0.3, 100);
+                            
+                            if (rect.bottom > containerRect.top + threshold) {
+                                currentPageNum = pages[i].getAttribute('data-page');
+                                break;
+                            }
+                        }
+                        
+                        const inputEl = document.getElementById('pdf-current-page');
+                        if (inputEl && document.activeElement !== inputEl) {
+                            inputEl.textContent = currentPageNum;
+                        }
+                    });
+                });
             }
         </script>
     @endpush

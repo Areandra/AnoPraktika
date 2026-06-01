@@ -27,51 +27,51 @@
 
                 @if ($activeAssignment->type === 'module')
                     {{-- Word File --}}
-                    <div>
+                    <div x-data="{ file: null, hover: false }">
                         <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
                             <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-400"></i>
                             Berkas Word Laporan (.docx)
                         </label>
                         <label class="group flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed cursor-pointer transition"
-                               style="border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5);"
-                               onmouseover="this.style.borderColor='rgba(59,130,246,0.4)'; this.style.background='rgba(59,130,246,0.04)'"
-                               onmouseout="this.style.borderColor='rgba(51,65,85,0.8)'; this.style.background='rgba(6,11,24,0.5)'">
-                            <i data-lucide="file-up" class="w-6 h-6 text-slate-600 mb-1.5 group-hover:text-blue-400 transition"></i>
-                            <span class="text-xs text-slate-600 group-hover:text-slate-400 transition">Klik untuk pilih file .docx</span>
-                            <input type="file" name="word_file" accept=".docx" class="hidden" required>
+                               :style="file ? 'border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.05)' : (hover ? 'border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.04)' : 'border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5)')"
+                               @mouseenter="hover = true"
+                               @mouseleave="hover = false">
+                            <i data-lucide="file-up" class="w-6 h-6 mb-1.5 transition" :class="file ? 'text-blue-400' : 'text-slate-600 group-hover:text-blue-400'"></i>
+                            <span class="text-xs transition text-center px-4 truncate w-full" :class="file ? 'text-blue-400 font-semibold' : 'text-slate-600 group-hover:text-slate-400'" x-text="file ? file.name : 'Klik untuk pilih file .docx'">Klik untuk pilih file .docx</span>
+                            <input type="file" name="word_file" accept=".docx" class="hidden" required @change="file = $event.target.files.length ? $event.target.files[0] : null">
                         </label>
                     </div>
 
                     {{-- PDF File --}}
-                    <div>
+                    <div x-data="{ file: null, hover: false }">
                         <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
                             <i data-lucide="file-scan" class="w-3.5 h-3.5 text-red-400"></i>
                             Berkas PDF Laporan (.pdf)
                         </label>
                         <label class="group flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed cursor-pointer transition"
-                               style="border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5);"
-                               onmouseover="this.style.borderColor='rgba(239,68,68,0.4)'; this.style.background='rgba(239,68,68,0.04)'"
-                               onmouseout="this.style.borderColor='rgba(51,65,85,0.8)'; this.style.background='rgba(6,11,24,0.5)'">
-                            <i data-lucide="file-up" class="w-6 h-6 text-slate-600 mb-1.5 group-hover:text-red-400 transition"></i>
-                            <span class="text-xs text-slate-600 group-hover:text-slate-400 transition">Klik untuk pilih file .pdf</span>
-                            <input type="file" name="pdf_file" accept=".pdf" class="hidden" required>
+                               :style="file ? 'border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.05)' : (hover ? 'border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.04)' : 'border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5)')"
+                               @mouseenter="hover = true"
+                               @mouseleave="hover = false">
+                            <i data-lucide="file-up" class="w-6 h-6 mb-1.5 transition" :class="file ? 'text-red-400' : 'text-slate-600 group-hover:text-red-400'"></i>
+                            <span class="text-xs transition text-center px-4 truncate w-full" :class="file ? 'text-red-400 font-semibold' : 'text-slate-600 group-hover:text-slate-400'" x-text="file ? file.name : 'Klik untuk pilih file .pdf'">Klik untuk pilih file .pdf</span>
+                            <input type="file" name="pdf_file" accept=".pdf" class="hidden" required @change="file = $event.target.files.length ? $event.target.files[0] : null">
                         </label>
                     </div>
                 @else
                     {{-- Attachment --}}
-                    <div>
+                    <div x-data="{ file: null, hover: false }">
                         <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-2">
                             <i data-lucide="paperclip" class="w-3.5 h-3.5 text-indigo-400"></i>
                             Attachment File (Zip / Markdown / Code)
                         </label>
                         <label class="group flex flex-col items-center justify-center w-full h-28 rounded-xl border-2 border-dashed cursor-pointer transition"
-                               style="border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5);"
-                               onmouseover="this.style.borderColor='rgba(99,102,241,0.4)'; this.style.background='rgba(99,102,241,0.04)'"
-                               onmouseout="this.style.borderColor='rgba(51,65,85,0.8)'; this.style.background='rgba(6,11,24,0.5)'">
-                            <i data-lucide="upload-cloud" class="w-7 h-7 text-slate-600 mb-1.5 group-hover:text-indigo-400 transition"></i>
-                            <span class="text-xs text-slate-500 group-hover:text-slate-300 transition font-medium">Klik untuk pilih file</span>
-                            <span class="text-[10px] text-slate-700 mt-0.5">.zip · .md · .js · .py · dll</span>
-                            <input type="file" name="attachment_file" class="hidden" required>
+                               :style="file ? 'border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.05)' : (hover ? 'border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.04)' : 'border-color: rgba(51,65,85,0.8); background: rgba(6,11,24,0.5)')"
+                               @mouseenter="hover = true"
+                               @mouseleave="hover = false">
+                            <i data-lucide="upload-cloud" class="w-7 h-7 mb-1.5 transition" :class="file ? 'text-indigo-400' : 'text-slate-600 group-hover:text-indigo-400'"></i>
+                            <span class="text-xs transition font-medium text-center px-4 truncate w-full" :class="file ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'" x-text="file ? file.name : 'Klik untuk pilih file'">Klik untuk pilih file</span>
+                            <span class="text-[10px] text-slate-700 mt-0.5" x-show="!file">.zip · .md · .js · .py · dll</span>
+                            <input type="file" name="attachment_file" class="hidden" required @change="file = $event.target.files.length ? $event.target.files[0] : null">
                         </label>
                     </div>
                 @endif

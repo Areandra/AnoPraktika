@@ -13,9 +13,10 @@
         <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/40">
             <i data-lucide="file-text" class="w-3 h-3 text-slate-500"></i>
             <span class="text-xs font-mono text-slate-300">
-                Hal <span id="pdf-current-page" class="text-white font-bold">0</span>
+                Hal 
+                <span id="pdf-current-page" contenteditable="true" class="text-white font-bold outline-none focus:ring-0 mx-1 min-w-[24px] inline-block text-center border-b border-transparent focus:border-slate-500 transition-colors" onblur="jumpToPage(this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">0</span>
                 <span class="text-slate-600">/</span>
-                <span id="pdf-total-pages" class="text-slate-400">0</span>
+                <span id="pdf-total-pages" class="text-slate-400 ml-0.5">0</span>
             </span>
         </div>
 

@@ -19,11 +19,13 @@ class DatabaseSeeder extends Seeder
         $student = User::firstOrCreate(['email' => 'student@example.com'], [
             'name' => 'Areandra (Student)',
             'password' => bcrypt('password'),
+            'identifier' => '1234567890',
         ]);
 
         $assistant = User::firstOrCreate(['email' => 'assistant@example.com'], [
             'name' => 'Budi (Assistant)',
             'password' => bcrypt('password'),
+            'identifier' => '0987654321',
         ]);
 
         // 2. Practicums
@@ -58,7 +60,6 @@ class DatabaseSeeder extends Seeder
         ], [
             'description' => 'Mempelajari sintaks dasar C++, input/output, dan tipe data.',
             'type' => 'module',
-            'pdf_file_path' => 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
             'deadline' => now()->addDays(7),
         ]);
 
