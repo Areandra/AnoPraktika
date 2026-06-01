@@ -7,8 +7,6 @@ use App\Http\Controllers\PracticumController;
 use App\Http\Controllers\SubmissionController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
 // Route::get('/', function () {
 //     return view('welcome');
 // });
@@ -27,19 +25,19 @@ Route::prefix('register')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Hub Pusat Aplikasi (Sesuai Layout Desain Komponen)
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::middleware('practicum')->group(function () {
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // CRUD Praktikum (Join & Create)
+        Route::patch('/practicums/{practicum_id}/accept/{user_id}', [PracticumController::class, 'accept'])->name('practicum.accept');
+        Route::delete('/practicums/{practicum_id}/kick/{user_id}', [PracticumController::class, 'kick'])->name('practicum.kick');
+
+        Route::post('/assignments/create', [AssignmentController::class, 'store'])->name('assignments.store');
+
+        Route::post('/submissions/{assignment}/store', [SubmissionController::class, 'store'])->name('submissions.store');
+
+        Route::post('/submissions/{submissionVersion}/review', [SubmissionController::class, 'review'])->name('submissions.review');
+    });
+
     Route::post('/practicums/create', [PracticumController::class, 'store'])->name('practicums.store');
     Route::post('/practicums/join', [PracticumController::class, 'join'])->name('practicums.join');
-    Route::patch('/practicums/{practicum_id}/accept/{user_id}', [PracticumController::class, 'accept'])->name('practicum.accept');
-    Route::delete('/practicums/{practicum_id}/kick/{user_id}', [PracticumController::class, 'kick'])->name('practicum.kick');
-
-    // CRUD Assignment
-    Route::post('/assignments/create', [AssignmentController::class, 'store'])->name('assignments.store');
-
-    // CRUD Submissions (Upload & Review)
-    Route::post('/submissions/{assignment}/store', [SubmissionController::class, 'store'])->name('submissions.store');
-    Route::post('/submissions/{submissionVersion}/review', [SubmissionController::class, 'review'])->name('submissions.review');
 });

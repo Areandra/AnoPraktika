@@ -1,15 +1,23 @@
 {{-- components/sidebar-left.blade.php --}}
 <div class="flex flex-col h-full">
 
+    @php
+        $parts = preg_split('/\s+/', trim($user->name));
+    @endphp
+
     {{-- Top: User Info --}}
     <div class="p-4 border-b border-slate-800/60">
         <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/30 border border-slate-700/30">
             <div class="relative flex-shrink-0">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm uppercase"
-                     style="background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%); box-shadow: 0 4px 12px rgba(99,102,241,0.3);">
-                    {{ substr($user->name, 0, 2) }}
+                    style="background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%); box-shadow: 0 4px 12px rgba(99,102,241,0.3);">
+                    {{ count($parts) >= 2
+                        ? strtoupper(substr($parts[0], 0, 1) . substr($parts[1], 0, 1))
+                        : strtoupper(substr($parts[0] ?? '', 0, 2)) }}
                 </div>
-                <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#0d1424] rounded-full"></div>
+                <div
+                    class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#0d1424] rounded-full">
+                </div>
             </div>
             <div class="overflow-hidden min-w-0">
                 <h4 class="font-semibold text-white truncate text-sm">{{ $user->name }}</h4>
@@ -45,11 +53,12 @@
                         : 'border-transparent text-slate-400 sidebar-item-hover hover:text-slate-200' }}">
                     <div class="flex items-center gap-2.5 min-w-0">
                         <i data-lucide="folder-open"
-                           class="w-4 h-4 flex-shrink-0 transition
+                            class="w-4 h-4 flex-shrink-0 transition
                            {{ request('practicum_id') == $p->id ? 'text-indigo-400' : 'text-slate-600 group-hover:text-slate-400' }}"></i>
                         <span class="truncate text-xs font-medium">{{ $p->name }}</span>
                     </div>
-                    <span class="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold uppercase tracking-wide
+                    <span
+                        class="flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded-md font-mono font-semibold uppercase tracking-wide
                         {{ $p->pivot->role === 'assistant'
                             ? 'bg-amber-500/12 text-amber-400 border border-amber-500/20'
                             : 'bg-blue-500/12 text-blue-400 border border-blue-500/20' }}">
@@ -60,7 +69,8 @@
                 <div class="py-6 text-center">
                     <i data-lucide="inbox" class="w-8 h-8 text-slate-700 mx-auto mb-2"></i>
                     <p class="text-xs text-slate-600">Belum ada praktikum.</p>
-                    <p class="text-xs text-slate-700 mt-0.5">Klik <span class="text-indigo-500">+</span> untuk bergabung.</p>
+                    <p class="text-xs text-slate-700 mt-0.5">Klik <span class="text-indigo-500">+</span> untuk
+                        bergabung.</p>
                 </div>
             @endforelse
         </nav>

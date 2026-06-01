@@ -65,9 +65,15 @@
                 <div
                     class="flex items-center justify-between px-4 py-3 rounded-xl border border-slate-800/60 bg-slate-900/30 hover:bg-slate-800/30 transition">
                     <div class="flex items-center gap-3">
+                        @php
+                            $parts = preg_split('/\s+/', trim($u->name));
+                        @endphp
+
                         <div
                             class="w-8 h-8 rounded-xl bg-gradient-to-br {{ $colorClass }} flex items-center justify-center font-bold text-white text-xs uppercase flex-shrink-0">
-                            {{ substr($u->name, 0, 2) }}
+                            {{ count($parts) >= 2
+                                ? strtoupper(substr($parts[0], 0, 1) . substr($parts[1], 0, 1))
+                                : strtoupper(substr($parts[0] ?? '', 0, 2)) }}
                         </div>
                         <div>
                             <h4 class="text-sm font-semibold text-white">{{ $u->name }}</h4>
