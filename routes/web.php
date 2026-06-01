@@ -33,6 +33,8 @@ Route::middleware('auth')->group(function () {
     // CRUD Praktikum (Join & Create)
     Route::post('/practicums/create', [PracticumController::class, 'store'])->name('practicums.store');
     Route::post('/practicums/join', [PracticumController::class, 'join'])->name('practicums.join');
+    Route::patch('/practicums/{practicum_id}/accept/{user_id}', [PracticumController::class, 'accept'])->name('practicum.accept');
+    Route::delete('/practicums/{practicum_id}/kick/{user_id}', [PracticumController::class, 'kick'])->name('practicum.kick');
 
     // CRUD Assignment
     Route::post('/assignments/create', [AssignmentController::class, 'store'])->name('assignments.store');

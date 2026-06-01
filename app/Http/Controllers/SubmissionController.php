@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log; 
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\IOFactory;
 use Symfony\Component\Process\Process;
 
@@ -30,7 +30,7 @@ class SubmissionController extends Controller
             $practicum = $assignment->practicum;
             $studentId = Auth::id();
 
-            
+
             if ($assignment->type === 'module') {
                 $request->validate([
                     'word_file' => ['required', 'file', 'mimes:docx,zip', 'max:20480'],
@@ -42,7 +42,7 @@ class SubmissionController extends Controller
                 ]);
             }
 
-            
+
             if (now()->greaterThan($assignment->deadline)) {
                 return back()->withErrors([
                     'deadline' => 'Batas waktu pengumpulan (deadline) telah terlewat.'
@@ -56,7 +56,7 @@ class SubmissionController extends Controller
                 $studentId
             ) {
 
-                
+
                 $submission = Submission::firstOrCreate(
                     [
                         'assignment_id' => $assignment->id,
@@ -73,12 +73,12 @@ class SubmissionController extends Controller
                     'current_status' => $submission->status
                 ]);
 
-                
+
                 if ($submission->status === 'approved') {
                     throw new \Exception('Laporan telah di-ACC, tidak dapat mengunggah revisi.');
                 }
 
-                
+
                 $latestVersion = $submission->versions()
                     ->orderBy('version_number', 'desc')
                     ->first();
@@ -96,7 +96,7 @@ class SubmissionController extends Controller
                 $isFormatValid = true;
                 $validationLogs = [];
 
-                
+
                 if ($assignment->type === 'module') {
 
                     $wordPath = $request->file('word_file')
@@ -120,7 +120,7 @@ class SubmissionController extends Controller
                     $validationLogs = $validation['logs'];
                 } else {
 
-                    
+
                     $attachmentPath = $request->file('attachment_file')
                         ->store($folderPath, 'public');
 
@@ -129,14 +129,14 @@ class SubmissionController extends Controller
                     ]);
                 }
 
-                
+
                 if ($submission->status === 'revision') {
                     $submission->update([
                         'status' => 'pending'
                     ]);
                 }
 
-                
+
                 SubmissionVersion::create([
                     'submission_id'          => $submission->id,
                     'version_number'         => $versionNumber,
@@ -151,7 +151,7 @@ class SubmissionController extends Controller
                 Log::info("Submission version created successfully.");
             });
 
-            
+
             return redirect()->route('dashboard', [
                 'practicum_id'  => $assignment->practicum_id,
                 'assignment_id' => $assignment->id
@@ -183,7 +183,7 @@ class SubmissionController extends Controller
 
     public function review(Request $request, $id)
     {
-        
+
         Log::info('Before update', [
             'notes' => $request->assistant_notes,
             'coords' => $request->annotation_coordinates
@@ -192,48 +192,48 @@ class SubmissionController extends Controller
         $request->validate([
             'status'                 => ['required', 'in:approved,revision'],
             'assistant_notes'        => ['required', 'string'],
-            'annotation_coordinates' => ['nullable', 'string'], 
+            'annotation_coordinates' => ['nullable', 'string'],
         ]);
 
 
 
 
         try {
-            
+
             return DB::transaction(function () use ($request, $id) {
 
-                
+
                 $reviewVersion = SubmissionVersion::findOrFail($id);
 
                 if (!$reviewVersion) {
                     return response()->json(['message' => 'Versi berkas pengumpulan tidak ditemukan.'], 404);
                 }
-                
+
                 $submission = $reviewVersion->submission;
 
 
-                
+
                 $submission->update([
                     'status'                => $request->status,
-                    'assigned_assistant_id' => Auth::id(), 
+                    'assigned_assistant_id' => Auth::id(),
                 ]);
 
-                
+
                 $rawCoordinates = $request->input('annotation_coordinates');
-                
+
                 $decoded = json_decode($rawCoordinates, true);
                 $jsonToSave = (json_last_error() === JSON_ERROR_NONE && is_array($decoded))
                     ? $rawCoordinates
                     : json_encode([]);
 
-                
+
                 $reviewVersion->update([
                     'assistant_notes' => $request->assistant_notes,
-                    
+
                     'annotation_coordinates' => $jsonToSave
                 ]);
 
-                
+
                 return redirect()->back()->with('success', 'Penilaian submission berhasil disimpan ke dalam sistem.');
             });
         } catch (\Exception $e) {
@@ -250,11 +250,11 @@ class SubmissionController extends Controller
     {
         $scriptPath = base_path('app/Scripts/validate-doc.py');
 
-        
+
         $pythonVenvPath = base_path('venv/bin/python3');
 
-        
-        $process = new Process([$pythonVenvPath, $scriptPath, $filePath, $pdfPath]);
+
+        $process = new Process([$pythonVenvPath, $scriptPath, $filePath, $pdfPath, json_encode($rules)]);
         try {
             $process->setTimeout(90);
             $process->run();

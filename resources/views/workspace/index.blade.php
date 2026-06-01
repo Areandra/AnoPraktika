@@ -33,8 +33,9 @@
 
             let currentPdfDoc = null;
             let currentPdfPage = 1;
-            let currentPdfScale = 1;
+            let currentPdfScale = null; // Will be calculated dynamically to fit width
             let currentSubmissionId = null;
+            let isContinuousMode = false;
             let activeAnnotations = [];
             let annotationCounter = 0;
 
@@ -46,9 +47,13 @@
 
 
             function loadPdfViewer(pdfUrl, submissionId, savedAnnotations, savedNotesBase64, systemValidationLogs) {
-                console.log("System Validation Logs:", systemValidationLogs);
+                // console.log("System Validation Logs:", systemValidationLogs);
+                window.currentValidationLogs = systemValidationLogs;
+
                 currentSubmissionId = submissionId;
-                currentPdfPage = 1;
+                // Read ?page= from URL for tracking, default to 1
+                const urlParams = new URLSearchParams(window.location.search);
+                currentPdfPage = parseInt(urlParams.get('page')) || 1;
                 activeAnnotations = savedAnnotations || [];
                 annotationCounter = activeAnnotations.length > 0 ? Math.max(...activeAnnotations.map(a => a.id)) : 0;
 
@@ -57,23 +62,59 @@
                     savedNotesBase64))) : '';
 
                 showPdfUI();
-                pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
+
+                const loadingOverlay = document.getElementById('pdf-loading-overlay');
+                const loadingPct = document.getElementById('pdf-loading-percentage');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = '0%';
+
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                loadingTask.onProgress = function(progress) {
+                    if (progress.total > 0 && loadingPct) {
+                        const percent = Math.round((progress.loaded / progress.total) * 100);
+                        loadingPct.textContent = percent + '%';
+                    }
+                };
+
+                loadingTask.promise.then(pdfDoc => {
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
-                    renderPage(currentPdfPage);
+                    // Clamp page to valid range
+                    currentPdfPage = Math.min(currentPdfPage, pdfDoc.numPages);
+                    if (isContinuousMode) {
+                        renderAllPages();
+                    } else {
+                        renderPage(currentPdfPage);
+                    }
+                    // Sync URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }).catch(err => {
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     console.error(err);
                     alert("Gagal membaca PDF.");
                 });
             }
 
             function loadPdfViewerStudent(pdfUrl, savedAnnotations, savedNotesBase64, systemValidationLogs) {
-                console.log("System Validation Logs:", systemValidationLogs);
-
+                // console.log("System Validation Logs:", systemValidationLogs);
 
                 window.currentValidationLogs = systemValidationLogs;
 
-                currentPdfPage = 1;
+                // Read ?page= from URL for tracking, default to 1
+                const urlParams = new URLSearchParams(window.location.search);
+                currentPdfPage = parseInt(urlParams.get('page')) || 1;
                 activeAnnotations = savedAnnotations || [];
                 showPdfUI();
 
@@ -88,11 +129,45 @@
                     notesPanel.classList.remove('hidden');
                 }
 
-                pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc => {
+                const loadingOverlay = document.getElementById('pdf-loading-overlay');
+                const loadingPct = document.getElementById('pdf-loading-percentage');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = '0%';
+
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                loadingTask.onProgress = function(progress) {
+                    if (progress.total > 0 && loadingPct) {
+                        const percent = Math.round((progress.loaded / progress.total) * 100);
+                        loadingPct.textContent = percent + '%';
+                    }
+                };
+
+                loadingTask.promise.then(pdfDoc => {
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     currentPdfDoc = pdfDoc;
                     document.getElementById('pdf-total-pages').textContent = pdfDoc.numPages;
-                    renderPage(currentPdfPage);
+                    // Clamp page to valid range
+                    currentPdfPage = Math.min(currentPdfPage, pdfDoc.numPages);
+                    if (isContinuousMode) {
+                        renderAllPages();
+                    } else {
+                        renderPage(currentPdfPage);
+                    }
+                    // Sync URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }).catch(err => {
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                        loadingOverlay.classList.remove('flex');
+                    }
                     console.error(err);
                     alert("Gagal membaca PDF.");
                 });
@@ -101,7 +176,11 @@
             function showPdfUI() {
                 document.getElementById('pdf-placeholder').classList.add('hidden');
                 document.getElementById('pdf-toolbar').classList.remove('hidden');
-                document.getElementById('pdf-render-wrapper').classList.remove('hidden');
+
+                if (!isContinuousMode) {
+                    document.getElementById('pdf-render-wrapper').classList.remove('hidden');
+                    document.getElementById('pdf-continuous-container').classList.add('hidden');
+                }
                 const panel = document.getElementById('annotation-panel');
                 const submissionList = document.getElementById('submission-list');
                 if (panel) panel.classList.remove('hidden');
@@ -113,23 +192,46 @@
             function renderPage(num) {
                 if (!currentPdfDoc) return;
                 currentPdfDoc.getPage(num).then(page => {
+                    // Dynamically calculate scale to fit the container width on first load
+                    if (!currentPdfScale) {
+                        const container = document.getElementById('pdf-scroll-container');
+                        const unscaledViewport = page.getViewport({
+                            scale: 1.0
+                        });
+                        // Use container width, subtract a small margin (e.g. 16px) for safety
+                        const containerWidth = container.clientWidth || window.innerWidth;
+                        const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
+                        currentPdfScale = Math.max(0.5, calculatedScale);
+                    }
+
                     const viewport = page.getViewport({
                         scale: currentPdfScale
                     });
 
+                    // HD Rendering for crisp text on high DPI displays
+                    const outputScale = window.devicePixelRatio || 1;
 
-                    pdfCanvas.height = viewport.height;
-                    pdfCanvas.width = viewport.width;
+                    pdfCanvas.width = Math.floor(viewport.width * outputScale);
+                    pdfCanvas.height = Math.floor(viewport.height * outputScale);
+
+                    // Set CSS size to match the logical viewport size
+                    pdfCanvas.style.width = Math.floor(viewport.width) + "px";
+                    pdfCanvas.style.height = Math.floor(viewport.height) + "px";
 
                     const wrapper = document.getElementById('pdf-render-wrapper');
-                    wrapper.style.width = viewport.width + 'px';
-                    wrapper.style.height = viewport.height + 'px';
+                    wrapper.style.width = Math.floor(viewport.width) + 'px';
+                    wrapper.style.height = Math.floor(viewport.height) + 'px';
 
+                    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] :
+                        null;
 
-                    page.render({
+                    const renderContext = {
                         canvasContext: pdfContext,
-                        viewport
-                    }).promise.then(() => {
+                        transform: transform,
+                        viewport: viewport
+                    };
+
+                    page.render(renderContext).promise.then(() => {
                         document.getElementById('pdf-current-page').textContent = num;
                         const indicator = document.getElementById('target-page-indicator');
                         if (indicator) indicator.textContent = 'Halaman ' + num;
@@ -166,12 +268,14 @@
                                 .promise : textLayerRenderTask;
                             if (textPromise && typeof textPromise.then === 'function') {
                                 textPromise.then(() => {
-                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport);
+                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport,
+                                        wrapper);
                                 });
                             } else {
 
                                 setTimeout(() => {
-                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport);
+                                    highlightErrorsInTextLayer(textLayerDiv, num, viewport,
+                                        wrapper);
                                 }, 200);
                             }
                         });
@@ -207,7 +311,7 @@
                 });
             }
 
-            function highlightErrorsInTextLayer(container, currentPage, viewport) {
+            function highlightErrorsInTextLayer(container, currentPage, viewport, wrapper) {
 
                 let logs = [];
                 if (window.currentValidationLogs) {
@@ -219,7 +323,6 @@
                     }
                 }
 
-
                 const invalidLogs = logs.filter(item => {
                     if (item.status !== "Tidak Valid") return false;
                     if (item.koordinat_pdf && item.koordinat_pdf.halaman) {
@@ -229,126 +332,86 @@
                     return match ? parseInt(match[1]) === currentPage : false;
                 });
 
-                if (invalidLogs.length === 0) return;
+                if (invalidLogs.length === 0) {
+                    // No errors on this page — still clear any stale highlights from previous page
+                    if (wrapper) wrapper.querySelectorAll('.pdf-error-highlight').forEach(el => el.remove());
+                    return;
+                }
 
+                // IMPORTANT: Overlays are appended to pdf-render-wrapper (position:relative),
+                // NOT to the text layer. This guarantees coordinates are in the same space
+                // as the PDF canvas: pdfPoint * viewport.scale = CSS pixels from page top-left.
+                // This is pixel-perfect on ALL devices regardless of text layer CSS or scroll.
                 const scale = viewport.scale;
 
+                // Build page text for fallback (no-coords) matching
+                const pageTextString = Array.from(container.querySelectorAll('span'))
+                    .map(s => s.textContent).join('').toLowerCase();
 
-                const textSpans = Array.from(container.querySelectorAll('span'));
-                if (textSpans.length === 0) return;
-
-
-                let pageTextString = "";
-                const spanCharacterMap = textSpans.map(span => {
-                    const startIdx = pageTextString.length;
-                    pageTextString += span.textContent.toLowerCase();
-                    const endIdx = pageTextString.length;
-
-
-                    const spanRect = span.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const spanTop = spanRect.top - containerRect.top;
-                    const spanLeft = spanRect.left - containerRect.left;
-                    const spanBottom = spanRect.bottom - containerRect.top;
-                    const spanRight = spanRect.right - containerRect.left;
-
-                    return {
-                        span,
-                        start: startIdx,
-                        end: endIdx,
-                        spanTop,
-                        spanLeft,
-                        spanBottom,
-                        spanRight
-                    };
-                });
+                // Remove stale highlights from a previous render of this page
+                wrapper.querySelectorAll('.pdf-error-highlight').forEach(el => el.remove());
 
 
                 invalidLogs.forEach(item => {
                     let searchStr = item.teks;
                     if (searchStr.endsWith('...')) searchStr = searchStr.slice(0, -3);
                     searchStr = searchStr.trim().toLowerCase();
-                    if (searchStr.length < 4) return;
 
-
-                    let pdfBox = null;
-                    if (item.koordinat_pdf && viewport) {
-                        pdfBox = {
+                    // Strategy A — pdfBox available: draw precise overlay div on the wrapper.
+                    // pdfplumber gives x0,y0,x1,y1 in PDF points (Y from page top).
+                    // Multiply by viewport.scale → CSS pixels relative to wrapper top-left.
+                    // This is guaranteed correct on every device/screen size.
+                    if (item.koordinat_pdf) {
+                        const pdfBox = {
                             x0: item.koordinat_pdf.x0 * scale,
                             y0: item.koordinat_pdf.y0 * scale,
                             x1: item.koordinat_pdf.x1 * scale,
                             y1: item.koordinat_pdf.y1 * scale,
                         };
-                    }
 
-                    const applyHighlight = (targetSpan) => {
-                        targetSpan.classList.add('pdf-error-highlight');
-                        targetSpan.style.pointerEvents = 'auto';
-                        targetSpan.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
-                        targetSpan.style.borderBottom = '2px dashed #ef4444';
-                        targetSpan.style.borderRadius = '2px';
-                        targetSpan.style.cursor = 'help';
-                        targetSpan.dataset.errors = JSON.stringify(item.detail_catatan || [item.teks]);
-                        targetSpan.dataset.location = item.lokasi;
-                        targetSpan.dataset.specs =
-                            `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
-                    };
-
-                    let matched = false;
-                    let searchIndex = pageTextString.indexOf(searchStr);
-
-                    while (searchIndex !== -1) {
-                        const matchStart = searchIndex;
-                        const matchEnd = searchIndex + searchStr.length;
-
-                        spanCharacterMap.forEach(itemMap => {
-                            if (itemMap.start >= matchEnd || itemMap.end <= matchStart) return;
-
-
-
-                            if (pdfBox) {
-                                const tolerance = 0;
-                                const overlapX = itemMap.spanLeft < (pdfBox.x1 + tolerance) && itemMap
-                                    .spanRight > (pdfBox.x0 - tolerance);
-                                const overlapY = itemMap.spanTop < (pdfBox.y1 + tolerance) && itemMap
-                                    .spanBottom > (pdfBox.y0 - tolerance);
-
-
-                                if (!overlapX || !overlapY) return;
-                            }
-
-                            applyHighlight(itemMap.span);
-                            matched = true;
-                        });
-
-                        searchIndex = pageTextString.indexOf(searchStr, searchIndex + 1);
-                    }
-
-
-                    if (!matched && pdfBox) {
                         const box = document.createElement('div');
                         box.classList.add('pdf-error-highlight');
                         box.style.position = 'absolute';
                         box.style.left = `${pdfBox.x0}px`;
                         box.style.top = `${pdfBox.y0}px`;
-                        box.style.width = `${pdfBox.x1 - pdfBox.x0}px`;
-                        box.style.height = `${pdfBox.y1 - pdfBox.y0}px`;
+                        box.style.width = `${Math.max(pdfBox.x1 - pdfBox.x0, 4)}px`;
+                        box.style.height = `${Math.max(pdfBox.y1 - pdfBox.y0, 4)}px`;
                         box.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
                         box.style.borderBottom = '2px dashed #ef4444';
                         box.style.borderRadius = '2px';
                         box.style.cursor = 'help';
                         box.style.pointerEvents = 'auto';
+                        box.style.zIndex = '25';
                         box.dataset.errors = JSON.stringify(item.detail_catatan || [item.teks]);
                         box.dataset.location = item.lokasi;
                         box.dataset.specs =
                             `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
-                        container.appendChild(box);
+                        wrapper.appendChild(box);
+                        return; // done for this item
                     }
+
+                    // Strategy B — no pdfBox: fall back to span-based text highlight.
+                    if (searchStr.length < 4) return;
+                    if (pageTextString.indexOf(searchStr) === -1) return;
+
+                    Array.from(container.querySelectorAll('span')).forEach(span => {
+                        if (!span.textContent.toLowerCase().includes(searchStr)) return;
+                        span.classList.add('pdf-error-highlight');
+                        span.style.pointerEvents = 'auto';
+                        span.style.backgroundColor = 'rgba(239, 68, 68, 0.25)';
+                        span.style.borderBottom = '2px dashed #ef4444';
+                        span.style.borderRadius = '2px';
+                        span.style.cursor = 'help';
+                        span.dataset.errors = JSON.stringify(item.detail_catatan || [item.teks]);
+                        span.dataset.location = item.lokasi;
+                        span.dataset.specs =
+                            `Font: ${item.font_terdeteksi} | Size: ${item.ukuran_terdeteksi}pt | Spasi: ${item.spasi_terdeteksi}`;
+                    });
                 });
 
-
-                setupTooltipEngine(container);
+                setupTooltipEngine(wrapper);
             }
+
 
             function setupTooltipEngine(container) {
 
@@ -392,16 +455,20 @@
                     ).join('');
 
                     tooltip.innerHTML = `
-            <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                ⚠️ Malformat (${location})
-            </div>
-            <ul style="padding: 0; margin: 0 0 8px 0;">
-                ${errorItems}
-            </ul>
-            <div style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; font-style: italic;">
-                ${specs}
-            </div>
-        `;
+                        <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <span class="flex items-center gap-1 flex-row">
+                                <i data-lucide="message-square-warning" class="w-4 h-4 text-slate-500"></i>
+                                Malformat (${location})
+                            </span>
+                        </div>
+                        <ul style="padding: 0; margin: 0 0 8px 0;">
+                            ${errorItems}
+                        </ul>
+                        <div style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; font-style: italic;">
+                            ${specs}
+                        </div>
+                    `;
+                    lucide.createIcons();
                     tooltip.style.display = 'block';
                 });
 
@@ -425,45 +492,241 @@
             }
 
             function changePage(offset) {
-                if (!currentPdfDoc) return;
+                if (!currentPdfDoc || isContinuousMode) return;
                 const next = currentPdfPage + offset;
                 if (next >= 1 && next <= currentPdfDoc.numPages) {
                     currentPdfPage = next;
                     renderPage(currentPdfPage);
+                    // URL tracking: update ?page= without reload
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('page', currentPdfPage);
+                    history.replaceState(null, '', url.toString());
                 }
             }
 
-            function zoomPdf(amount) {
-                currentPdfScale = Math.max(0.8, Math.min(2.5, currentPdfScale + amount));
-                document.getElementById('pdf-render-wrapper').style.transform = `scale(${currentPdfScale})`;
+            // Keyboard Shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (!currentPdfDoc || isContinuousMode) return;
+                // Ignore if user is typing in an input or textarea
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+                if (e.key === 'ArrowRight') {
+                    changePage(1);
+                } else if (e.key === 'ArrowLeft') {
+                    changePage(-1);
+                }
+            });
 
+            function toggleContinuousMode() {
+                if (!currentPdfDoc) return;
+                isContinuousMode = !isContinuousMode;
+
+                const btn = document.getElementById('btn-continuous-mode');
+                const scrollContainer = document.getElementById('pdf-scroll-container');
+                const singleWrapper = document.getElementById('pdf-render-wrapper');
+                const contContainer = document.getElementById('pdf-continuous-container');
+                const btnNext = document.getElementById('btn-page-next');
+                const btnPrev = document.getElementById('btn-page-prev');
+
+                if (isContinuousMode) {
+                    btn.classList.add('bg-indigo-500/20', 'border-indigo-500/50', 'text-indigo-400');
+                    btn.classList.remove('text-slate-400', 'bg-slate-800/50', 'border-slate-700/40');
+
+                    singleWrapper.classList.add('hidden');
+                    if (btnNext) btnNext.classList.add('opacity-50', 'pointer-events-none');
+                    if (btnPrev) btnPrev.classList.add('opacity-50', 'pointer-events-none');
+
+                    renderAllPages();
+                } else {
+                    btn.classList.remove('bg-indigo-500/20', 'border-indigo-500/50', 'text-indigo-400');
+                    btn.classList.add('text-slate-400', 'bg-slate-800/50', 'border-slate-700/40');
+
+                    contContainer.innerHTML = '';
+                    contContainer.classList.add('hidden');
+                    contContainer.classList.remove('flex');
+                    singleWrapper.classList.remove('hidden');
+
+                    if (btnNext) btnNext.classList.remove('opacity-50', 'pointer-events-none');
+                    if (btnPrev) btnPrev.classList.remove('opacity-50', 'pointer-events-none');
+
+                    renderPage(currentPdfPage);
+                }
             }
 
-            function catchCoordinates(event) {
+            async function renderAllPages() {
+                if (!currentPdfDoc) return;
+
+                const container = document.getElementById('pdf-continuous-container');
+                container.innerHTML = '';
+                container.classList.remove('hidden');
+                container.classList.add('flex');
+
+                document.getElementById('pdf-current-page').textContent = 'All';
+
+                // Optional: show loading overlay while rendering all pages
+                const loadingOverlay = document.getElementById('pdf-loading-overlay');
+                const loadingPct = document.getElementById('pdf-loading-percentage');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.classList.add('flex');
+                }
+                if (loadingPct) loadingPct.textContent = 'Rendering...';
+
+                for (let i = 1; i <= currentPdfDoc.numPages; i++) {
+                    await renderSingleContinuousPage(i, container);
+                }
+
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hidden');
+                    loadingOverlay.classList.remove('flex');
+                }
+            }
+
+            async function renderSingleContinuousPage(num, container) {
+                const page = await currentPdfDoc.getPage(num);
+
+                if (!currentPdfScale) {
+                    const scrollContainer = document.getElementById('pdf-scroll-container');
+                    const unscaledViewport = page.getViewport({
+                        scale: 1.0
+                    });
+                    const containerWidth = scrollContainer.clientWidth || window.innerWidth;
+                    const calculatedScale = (containerWidth - 16) / unscaledViewport.width;
+                    currentPdfScale = Math.max(0.5, calculatedScale);
+                }
+
+                const viewport = page.getViewport({
+                    scale: currentPdfScale
+                });
+                const outputScale = window.devicePixelRatio || 1;
+
+                // Create wrapper
+                const wrapper = document.createElement('div');
+                wrapper.className = "relative shadow-2xl origin-top-left mx-auto text-left pdf-continuous-page";
+                wrapper.style.width = Math.floor(viewport.width) + 'px';
+                wrapper.style.height = Math.floor(viewport.height) + 'px';
+                wrapper.style.borderRadius = "4px";
+                wrapper.style.boxShadow = "0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)";
+                wrapper.setAttribute('data-page', num);
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                canvas.className = "block";
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                canvas.style.height = Math.floor(viewport.height) + "px";
+                wrapper.appendChild(canvas);
+
+                // Interactive layer
+                const disableClick = {{ $disableClick ?? 'false' }};
+                const interactiveLayer = document.createElement('div');
+                interactiveLayer.className =
+                    `absolute inset-0 z-20 ${disableClick ? 'cursor-default' : 'cursor-crosshair'}`;
+                interactiveLayer.setAttribute('data-page', num);
+                if (!disableClick) {
+                    interactiveLayer.onclick = function(e) {
+                        catchCoordinates(e, num);
+                    };
+                }
+                wrapper.appendChild(interactiveLayer);
+
+                // Marker layer
+                const markerLayer = document.createElement('div');
+                markerLayer.id = `pdf-marker-layer-${num}`;
+                markerLayer.className = "absolute inset-0 pointer-events-none z-30";
+                wrapper.appendChild(markerLayer);
+
+                container.appendChild(wrapper);
+
+                const renderContext = {
+                    canvasContext: canvas.getContext('2d'),
+                    transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+                    viewport: viewport
+                };
+
+                await page.render(renderContext).promise;
+
+                console.log(`[Page ${num}] currentValidationLogs:`, window.currentValidationLogs);
+
+                let textLayerDiv = document.createElement('div');
+                textLayerDiv.className = 'textLayer';
+                textLayerDiv.style.width = viewport.width + 'px';
+                textLayerDiv.style.height = viewport.height + 'px';
+                textLayerDiv.style.position = 'absolute';
+                textLayerDiv.style.top = '0';
+                textLayerDiv.style.left = '0';
+                textLayerDiv.style.zIndex = '20';
+
+                wrapper.appendChild(textLayerDiv);
+
+                page.getTextContent().then(textContent => {
+                    const textLayerRenderTask = pdfjsLib.renderTextLayer({
+                        textContent: textContent,
+                        container: textLayerDiv,
+                        viewport: viewport,
+                        textDivs: []
+                    });
+
+                    const textPromise = textLayerRenderTask.promise ?
+                        textLayerRenderTask.promise :
+                        textLayerRenderTask;
+
+                    if (textPromise && typeof textPromise.then === 'function') {
+                        textPromise.then(() => {
+                            highlightErrorsInTextLayer(textLayerDiv, num, viewport, wrapper);
+                        });
+                    } else {
+                        setTimeout(() => {
+                            highlightErrorsInTextLayer(textLayerDiv, num, viewport, wrapper);
+                        }, 200);
+                    }
+                });
+
+                // Render markers for this page
+                drawMarkersForPage(num);
+            }
+
+            function zoomPdf(amount) {
+                if (!currentPdfScale) return;
+                currentPdfScale = Math.max(0.3, Math.min(4.0, currentPdfScale + amount));
+                // Remove any lingering CSS transforms
+                document.getElementById('pdf-render-wrapper').style.transform = '';
+                // Re-render the page at the new scale for HD crispness
+                if (isContinuousMode) {
+                    renderAllPages();
+                } else {
+                    renderPage(currentPdfPage);
+                }
+            }
+
+            function catchCoordinates(event, pageNum = null) {
 
                 if (window.getSelection().toString().trim() !== '') {
                     return;
                 }
 
-                const layer = document.getElementById('pdf-text-layer');
+                // If pageNum is provided (Continuous Mode), use it. Otherwise use currentPdfPage.
+                const targetPage = pageNum || currentPdfPage;
+                const layer = event.currentTarget;
                 if (!layer) return;
 
                 const rect = layer.getBoundingClientRect();
-                const x = Math.round(event.clientX - rect.left);
-                const y = Math.round(event.clientY - rect.top);
+                // Normalize coordinates to scale 1.0 so they remain accurate across zooms
+                const x = Math.round((event.clientX - rect.left) / currentPdfScale);
+                const y = Math.round((event.clientY - rect.top) / currentPdfScale);
 
                 annotationCounter++;
                 pendingAnnotation = {
                     id: annotationCounter,
-                    page: currentPdfPage,
+                    page: targetPage,
                     x: x,
                     y: y,
                     comment: ''
                 };
 
                 document.getElementById('comment-coord-info').innerText =
-                    `X: ${x}, Y: ${y} | Hal ${currentPdfPage}`;
+                    `X: ${x}, Y: ${y} | Hal ${targetPage}`;
                 document.getElementById('comment-text').value = '';
                 document.getElementById('commentModal').classList.remove('hidden');
             }
@@ -488,14 +751,23 @@
             });
 
             function createMarker(ann) {
-                const layer = document.getElementById('pdf-marker-layer');
-                if (!layer || ann.page !== currentPdfPage) return;
+                let layer;
+                if (isContinuousMode) {
+                    layer = document.getElementById(`pdf-marker-layer-${ann.page}`);
+                } else {
+                    if (ann.page !== currentPdfPage) return;
+                    layer = document.getElementById('pdf-marker-layer');
+                }
+
+                if (!layer) return;
 
                 const marker = document.createElement('div');
                 marker.className =
                     "absolute w-5 h-5 bg-red-500 text-white font-mono font-bold text-[9px] rounded-full flex items-center justify-center shadow-lg border border-white transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition hover:scale-110";
-                marker.style.left = ann.x + 'px';
-                marker.style.top = ann.y + 'px';
+
+                // Scale back up the normalized coordinates
+                marker.style.left = (ann.x * currentPdfScale) + 'px';
+                marker.style.top = (ann.y * currentPdfScale) + 'px';
 
 
                 marker.style.pointerEvents = 'auto';
@@ -523,14 +795,21 @@
             }
 
             function clearMarkers() {
+                document.querySelectorAll('.pdf-continuous-page [data-marker-id]').forEach(el => el.remove());
                 document.querySelectorAll('#pdf-interactive-layer [data-marker-id]').forEach(el => el.remove());
+                // Fallback for marker-layer specific elements
+                document.querySelectorAll('[id^="pdf-marker-layer"] [data-marker-id]').forEach(el => el.remove());
             }
 
             function removeAnnotation(id) {
                 activeAnnotations = activeAnnotations.filter(a => a.id !== id);
                 document.getElementById('annotation_coordinates').value = JSON.stringify(activeAnnotations);
                 clearMarkers();
-                drawMarkersForPage(currentPdfPage);
+                if (isContinuousMode) {
+                    activeAnnotations.forEach(a => createMarker(a));
+                } else {
+                    drawMarkersForPage(currentPdfPage);
+                }
                 renderCoordinatesLog();
             }
 
@@ -542,85 +821,97 @@
 
                 if (pageAnns.length === 0) {
                     container.innerHTML =
-                        '<span class="text-gray-600 italic text-[9px]">Belum ada poin komentar di halaman ini.</span>';
+                        '<span class="text-slate-700 italic text-[10px]">Belum ada titik komentar di halaman ini.</span>';
                     return;
                 }
 
                 container.innerHTML = pageAnns.map(a => `
-                    <div class="flex justify-between items-center bg-[#1e293b] p-1 rounded px-2 border border-gray-800">
-                        <span>
-                            #${a.id} (${a.x}, ${a.y})
-                            ${String(a.comment).substring(0, 20)}
+                    <div class="flex justify-between items-center rounded-lg px-2 py-1.5 border" style="background: rgba(13,20,36,0.8); border-color: rgba(51,65,85,0.5);">
+                        <span class="text-[10px] font-mono text-amber-400 truncate flex-1 min-w-0">
+                            <span class="text-slate-500">#${a.id}</span>
+                            <span class="text-slate-600 mx-1">(${a.x},${a.y})</span>
+                            ${String(a.comment).substring(0, 18)}${a.comment.length > 18 ? '…' : ''}
                         </span>
-
                         <button
                             type="button"
                             onclick="removeAnnotation(${a.id})"
-                            class="text-red-400 hover:text-red-300 font-bold px-1">
-                            Hapus
+                            class="flex-shrink-0 ml-1 text-red-500 hover:text-red-400 transition"
+                            title="Hapus anotasi">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
                 `).join('');
             }
 
 
-            const tooltip = document.getElementById('annotation-tooltip');
-            const scrollContainer = document.getElementById('pdf-scroll-container');
+            function getOrCreateAnnotationTooltip() {
+                let tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.id = 'pdf-dynamic-annotation-tooltip';
 
+                    // Style persis seperti setupTooltipEngine
+                    Object.assign(tooltip.style, {
+                        position: 'fixed',
+                        zIndex: '9999',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        color: '#f8fafc',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+                        display: 'none', // Sembunyikan default
+                        pointerEvents: 'none',
+                        maxWidth: '300px',
+                        lineHeight: '1.5',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(4px)',
+                        fontFamily: 'sans-serif'
+                    });
+                    document.body.appendChild(tooltip);
+                }
+                return tooltip;
+            }
+
+            // 2. Tampilkan tooltip saat hover
             function showTooltip(e) {
                 const comment = e.currentTarget.getAttribute('data-comment');
                 if (!comment || comment === 'Tidak ada komentar') return;
-                tooltip.innerText = comment;
-                tooltip.classList.remove('hidden');
-                positionTooltip(e.currentTarget);
+
+                const tooltip = getOrCreateAnnotationTooltip();
+
+                tooltip.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 6px; color: #38bdf8; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; font-size: 11px; letter-spacing: 0.5px;">
+                        <span class="flex items-center gap-1 justify-center flex-row">
+                            <i data-lucide="message-square-warning" class="w-4 h-4 text-slate-500"></i>
+                            <p>Komentar Anotasi</p>
+                        </span>
+                    </div>
+                    <p style="margin-bottom: 4px; color: #f87171;">${comment}</p>
+                `;
+
+                lucide.createIcons();
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
             }
 
-            function hideTooltip() {
-                tooltip.classList.add('hidden');
-            }
-
-            function positionTooltip(marker) {
-                const tooltip = document.getElementById('annotation-tooltip');
-                const scrollContainer = document.getElementById('pdf-scroll-container');
-                if (!tooltip || !scrollContainer || !marker) return;
-
-                const markerRect = marker.getBoundingClientRect();
-                const containerRect = scrollContainer.getBoundingClientRect();
-
-
-                const markerLeft = markerRect.left - containerRect.left + scrollContainer.scrollLeft;
-                const markerTop = markerRect.top - containerRect.top + scrollContainer.scrollTop;
-                const markerCenterX = markerLeft + markerRect.width / 2;
-                const markerCenterY = markerTop + markerRect.height / 2;
-
-                const tooltipWidth = tooltip.offsetWidth;
-                const tooltipHeight = tooltip.offsetHeight;
-                const margin = 12;
-
-                let left, top;
-
-
-                if (markerLeft + markerRect.width + tooltipWidth + margin <= scrollContainer.scrollWidth) {
-                    left = markerLeft + markerRect.width + margin;
-                    top = markerCenterY - tooltipHeight / 2;
-                } else if (markerLeft - tooltipWidth - margin >= 0) {
-                    left = markerLeft - tooltipWidth - margin;
-                    top = markerCenterY - tooltipHeight / 2;
-                } else {
-                    left = markerCenterX - tooltipWidth / 2;
-                    top = markerTop - tooltipHeight - margin;
+            // 3. Ikuti pergerakan kursor (Tambahkan ini ke event mousemove di HTML marker-mu)
+            function moveTooltip(e) {
+                const tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (tooltip && tooltip.style.display === 'block') {
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
                 }
+            }
 
-
-                const maxLeft = scrollContainer.scrollWidth - tooltipWidth;
-                const maxTop = scrollContainer.scrollHeight - tooltipHeight;
-
-                left = Math.max(0, Math.min(left, maxLeft));
-                top = Math.max(0, Math.min(top, maxTop));
-
-                tooltip.style.left = left + 'px';
-                tooltip.style.top = top + 'px';
-                tooltip.style.transform = 'none';
+            // 4. Sembunyikan tooltip
+            function hideTooltip() {
+                const tooltip = document.getElementById('pdf-dynamic-annotation-tooltip');
+                if (tooltip) {
+                    tooltip.style.display = 'none';
+                }
             }
 
             const CODE_EXTENSIONS = [
