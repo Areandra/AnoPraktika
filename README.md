@@ -1,6 +1,6 @@
 # AnoPraktika
 
-> Platform manajemen praktikum berbasis web — memudahkan **Asisten Praktikum** dan **Mahasiswa** dalam mengelola kelas, tugas, pengumpulan laporan, serta validasi format dokumen secara otomatis.
+> Web-based practicum management platform that streamlines class administration for Teaching Assistants and Students, including course management, assignment distribution, report submission, and automated document format validation.
 
 ![PHP](https://img.shields.io/badge/PHP-8.3+-777BB4?logo=php&logoColor=white)
 ![Laravel](https://img.shields.io/badge/Laravel-13.x-FF2D20?logo=laravel&logoColor=white)
